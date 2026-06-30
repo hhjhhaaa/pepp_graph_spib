@@ -1,0 +1,25 @@
+name: pepp-graph-spib
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - scipy
+  - pyyaml
+  - pytest
+  - ripser
+  - seaborn
+  - freud
+  - numpy
+  - tqdm
+  - joblib
+  - mdanalysis
+  - tensorboard
+  - matplotlib
+  - pandas
+  - h5py
+  - scikit-learn
+  - ruff
+  - black
+  - ase
+  - rdkit
+  - openbabel

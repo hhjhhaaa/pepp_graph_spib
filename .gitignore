@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# environments
+.venv/
+.env
+*.egg-info/
+
+# data
+data/raw/*
+data/processed/*
+data/dummy/*.pt
+data/dummy/*.h5
+data/dummy/*.pkl
+data/dummy/*.npz
+data/dummy/*.npy
+data/dummy/*.csv
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/dummy/.gitkeep
+
+# outputs
+outputs/checkpoints/*
+outputs/logs/*
+outputs/figures/*
+outputs/embeddings/*
+!outputs/checkpoints/.gitkeep
+!outputs/logs/.gitkeep
+!outputs/figures/.gitkeep
+!outputs/embeddings/.gitkeep
+
+# large artifacts
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.pkl
+*.joblib
+
+# logs
+*.log
+wandb/
+runs/
+
+# system
+.DS_Store
+Thumbs.db

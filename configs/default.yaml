@@ -1,0 +1,94 @@
+project:
+  name: pepp_graph_spib
+  seed: 42
+  device: auto
+
+paths:
+  dummy_graph_path: data/dummy/dummy_graph_windows.pt
+  dummy_system_targets_path: data/dummy/dummy_system_targets.csv
+  processed_graph_path: data/processed/graph_windows.pt
+  system_targets_path: data/dummy/dummy_system_targets.csv
+  split_path: outputs/logs/system_split.json
+  checkpoint_dir: outputs/checkpoints
+  log_dir: outputs/logs
+  figure_dir: outputs/figures
+  embedding_dir: outputs/embeddings
+
+data:
+  use_dummy: true
+  history_len: 8
+  stride: 1
+  future_tau: 8
+  r_cut_nm: 2.0
+  max_neighbors: 64
+  node_feature_dim: 16
+  edge_feature_dim: 12
+  condition_dim: 6
+  num_mobility_classes: 3
+  num_relax_classes: 3
+  num_contact_classes: 3
+  radial_shell_edges_nm: [0.6, 1.2, 2.0, 3.0]
+  pe_hist_bins: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+
+dummy:
+  num_systems: 24
+  samples_per_system: 300
+  tiny_num_systems: 6
+  tiny_samples_per_system: 30
+  min_nodes: 8
+  max_nodes: 16
+  box_nm: 8.0
+
+conditions:
+  names:
+    - density
+    - temperature
+    - PE_fraction
+    - PP_fraction
+    - PE_chain_length
+    - PP_chain_length
+
+model:
+  name: GraphSPIB
+  gnn_hidden_dim: 128
+  gnn_layers: 3
+  temporal_hidden_dim: 128
+  temporal_layers: 2
+  condition_hidden_dim: 64
+  z_dim: 2
+  dropout: 0.1
+  beta_kl: 1.0e-3
+
+training:
+  batch_size: 64
+  num_workers: 0
+  lr: 1.0e-3
+  weight_decay: 1.0e-5
+  max_epochs_spib: 5
+  max_epochs_property: 10
+  baseline_control_epochs: 2
+  patience: 8
+  grad_clip: 5.0
+  split_fracs: [0.7, 0.15, 0.15]
+
+loss:
+  weight_mobility: 1.0
+  weight_relax: 0.5
+  weight_contact: 0.5
+  weight_kl: 1.0
+
+property_targets:
+  names:
+    - log_D
+    - log_tau_relax
+    - log_D_eff
+    - tau_res
+    - P_access
+
+symbolic:
+  lasso_alpha: 0.01
+  target_names:
+    - z1
+    - z2
+    - log_D
+    - log_tau_relax

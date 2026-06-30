@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pepp-graph-spib"
+version = "0.1.0"
+description = "Local multi-scale Graph-SPIB for PE/PP blend trajectory learning."
+requires-python = ">=3.11"
+dependencies = [
+  "numpy",
+  "scipy",
+  "pandas",
+  "scikit-learn",
+  "matplotlib",
+  "seaborn",
+  "tqdm",
+  "pyyaml",
+  "h5py",
+  "joblib",
+  "torch",
+  "torch_geometric",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
