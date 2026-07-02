@@ -61,6 +61,27 @@ def test_dataset_loading_and_collate(batch, cfg):
     assert batch["metadata"]["PE_PP_contact_fraction"].shape == (4,)
 
 
+
+def test_pyg_batch_center_index_points_to_center_nodes(batch):
+    graph = batch["batch_graphs_by_time"][0]
+    centers = graph.center_index.long()
+    assert centers.numel() == batch["condition"].shape[0]
+    assert torch.all(graph.x[centers, 2] == 1.0)
+    for graph_id, center_idx in enumerate(centers.tolist()):
+        assert int(graph.batch[center_idx]) == graph_id
+
+
+def test_pe_pp_neighbor_masks_exclude_center_nodes(batch):
+    graph = batch["batch_graphs_by_time"][0]
+    centers = graph.center_index.long()
+    is_center = torch.zeros(graph.x.size(0), dtype=torch.bool)
+    is_center[centers] = True
+    pe_neighbor_mask = (~is_center) & (graph.segment_type == 0)
+    pp_neighbor_mask = (~is_center) & (graph.segment_type == 1)
+    assert not torch.any(pe_neighbor_mask & is_center)
+    assert not torch.any(pp_neighbor_mask & is_center)
+    assert torch.all(graph.x[centers, 2] == 1.0)
+
 def test_graph_spib_forward_node16_edge12(batch, model):
     with torch.no_grad():
         out = model(batch["batch_graphs_by_time"], batch["condition"])

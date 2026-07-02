@@ -10,7 +10,7 @@ import numpy as np
 
 
 def minimum_image(displacements: np.ndarray, box: np.ndarray | None) -> np.ndarray:
-    """Apply minimum image convention to displacement vectors of shape [..., 3]."""
+    """Apply minimum image convention for orthorhombic boxes to vectors [..., 3]."""
     if box is None:
         return displacements
     box = np.asarray(box, dtype=np.float32)

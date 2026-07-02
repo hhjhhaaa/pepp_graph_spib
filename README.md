@@ -75,3 +75,7 @@ The code does not assume MDAnalysis can infer polymer identity or torsion defini
 ## Repository Tracking Policy
 
 This repository tracks code, configuration, tests, and documentation only. Raw trajectories, processed datasets, checkpoints, logs, figures, and descriptor tables are excluded from Git tracking.
+
+## Baselines and Input Ablations
+
+The reported `baseline_metrics.csv` contains both a trained baseline and input ablation experiments. `condition_only` is a trained baseline using only system conditions. `static_graph_only`, `shuffled_history`, and `no_composition_edges` are input ablations or stress tests for the local multi-scale Graph-SPIB design. `full_graph_spib` loads the trained Graph-SPIB and transport head checkpoints for evaluation.

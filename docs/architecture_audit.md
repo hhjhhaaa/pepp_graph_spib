@@ -69,11 +69,11 @@ The regenerated descriptor table has 40 columns. Core columns include:
 
 LASSO targets remain limited to `z1`, `z2`, `log_D`, and `log_tau_relax`. PySR and SISSO are not included.
 
-## Baseline Validation
+## Baseline and Ablation Validation
 
-`outputs/logs/baseline_metrics.csv` was regenerated with 25 rows: five baseline names times five transport targets.
+`outputs/logs/baseline_metrics.csv` was regenerated with 25 rows: one trained baseline plus input ablations, across five transport targets.
 
-Baseline names:
+Experiment names:
 
 - `condition_only`
 - `static_graph_only`
@@ -81,7 +81,7 @@ Baseline names:
 - `no_composition_edges`
 - `full_graph_spib`
 
-`full_graph_spib` loads trained Graph-SPIB and transport head checkpoints for evaluation and does not retrain the main model inside the baseline script.
+`full_graph_spib` loads trained Graph-SPIB and transport head checkpoints for evaluation and does not retrain the main model inside the baseline script. `static_graph_only`, `shuffled_history`, and `no_composition_edges` are input ablations rather than independently proposed model architectures.
 
 ## Validation Commands
 
