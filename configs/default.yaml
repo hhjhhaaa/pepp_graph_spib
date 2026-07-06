@@ -18,25 +18,42 @@ data:
   use_dummy: true
   history_len: 8
   stride: 1
-  future_tau: 8
+  future_tau: 16
   r_cut_nm: 2.0
-  max_neighbors: 64
-  node_feature_dim: 16
-  edge_feature_dim: 12
-  condition_dim: 6
+  max_neighbors: 96
+  node_feature_dim: 24
+  edge_feature_dim: 16
+  condition_dim: 7
+  dynamic_descriptor_dim: 12
   num_mobility_classes: 3
-  num_relax_classes: 3
-  num_contact_classes: 3
-  radial_shell_edges_nm: [0.6, 1.2, 2.0, 3.0]
-  pe_hist_bins: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+  num_residence_classes: 3
+  num_accessibility_classes: 3
+  radial_shell_edges_nm: [0.5, 1.0, 1.5, 2.0]
+  composition_hist_bins: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+  segment_type_names: [PE, PP, PC, WALL]
+  dynamic_descriptor_names:
+    - short_displacement
+    - msd_slope
+    - axial_displacement
+    - radial_displacement
+    - wall_distance_mean
+    - wall_distance_trend
+    - wall_contact_fraction
+    - local_density_mean
+    - local_density_std
+    - free_volume_mean
+    - free_volume_std
+    - neighbor_exchange_proxy
 
 dummy:
   num_systems: 24
   samples_per_system: 300
   tiny_num_systems: 6
   tiny_samples_per_system: 30
-  min_nodes: 8
-  max_nodes: 16
+  min_polymer_nodes: 12
+  max_polymer_nodes: 28
+  min_wall_nodes: 8
+  max_wall_nodes: 18
   box_nm: 8.0
 
 conditions:
@@ -45,17 +62,19 @@ conditions:
     - temperature
     - PE_fraction
     - PP_fraction
-    - PE_chain_length
-    - PP_chain_length
+    - PC_fraction
+    - pore_radius_nm
+    - silanol_fraction
 
 model:
-  name: GraphSPIB
+  name: GraphDescriptorSPIB
   gnn_hidden_dim: 128
   gnn_layers: 3
   temporal_hidden_dim: 128
   temporal_layers: 2
+  descriptor_hidden_dim: 64
   condition_hidden_dim: 64
-  z_dim: 2
+  z_dim: 4
   dropout: 0.1
   beta_kl: 1.0e-3
 
@@ -73,8 +92,8 @@ training:
 
 loss:
   weight_mobility: 1.0
-  weight_relax: 0.5
-  weight_contact: 0.5
+  weight_residence: 0.5
+  weight_accessibility: 0.5
   weight_kl: 1.0
 
 property_targets:
@@ -90,5 +109,7 @@ symbolic:
   target_names:
     - z1
     - z2
+    - z3
+    - z4
     - log_D
     - log_tau_relax
