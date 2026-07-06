@@ -49,46 +49,20 @@ class GraphSPIB(nn.Module):
         self.num_radial_shells = 4
         self.contact_summary_dim = 7
         self.radial_shell_summary_dim = self.num_radial_shells * self.num_segment_types
-
         self.node_encoder = nn.Linear(node_feature_dim, gnn_hidden_dim)
         self.convs = nn.ModuleList()
         self.norms = nn.ModuleList()
         for _ in range(gnn_layers):
-            mlp = nn.Sequential(
-                nn.Linear(gnn_hidden_dim, gnn_hidden_dim),
-                nn.ReLU(),
-                nn.Linear(gnn_hidden_dim, gnn_hidden_dim),
-            )
+            mlp = nn.Sequential(nn.Linear(gnn_hidden_dim, gnn_hidden_dim), nn.ReLU(), nn.Linear(gnn_hidden_dim, gnn_hidden_dim))
             self.convs.append(GINEConv(mlp, edge_dim=edge_feature_dim))
             self.norms.append(nn.LayerNorm(gnn_hidden_dim))
-
         self.dropout = nn.Dropout(dropout)
         pooled_node_dim = gnn_hidden_dim * (2 + self.num_segment_types)
         frame_dim = pooled_node_dim + self.contact_summary_dim + self.radial_shell_summary_dim
         self.frame_proj = nn.Sequential(nn.Linear(frame_dim, gnn_hidden_dim), nn.ReLU(), nn.Dropout(dropout))
-
-        self.temporal = nn.GRU(
-            input_size=gnn_hidden_dim,
-            hidden_size=temporal_hidden_dim,
-            num_layers=temporal_layers,
-            dropout=dropout if temporal_layers > 1 else 0.0,
-            batch_first=True,
-        )
-
-        self.descriptor_encoder = nn.Sequential(
-            nn.Linear(dynamic_descriptor_dim, descriptor_hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(descriptor_hidden_dim, descriptor_hidden_dim),
-            nn.ReLU(),
-        )
-        self.condition_encoder = nn.Sequential(
-            nn.Linear(condition_dim, condition_hidden_dim),
-            nn.ReLU(),
-            nn.Linear(condition_hidden_dim, condition_hidden_dim),
-            nn.ReLU(),
-        )
-
+        self.temporal = nn.GRU(gnn_hidden_dim, temporal_hidden_dim, num_layers=temporal_layers, dropout=dropout if temporal_layers > 1 else 0.0, batch_first=True)
+        self.descriptor_encoder = nn.Sequential(nn.Linear(dynamic_descriptor_dim, descriptor_hidden_dim), nn.ReLU(), nn.Dropout(dropout), nn.Linear(descriptor_hidden_dim, descriptor_hidden_dim), nn.ReLU())
+        self.condition_encoder = nn.Sequential(nn.Linear(condition_dim, condition_hidden_dim), nn.ReLU(), nn.Linear(condition_hidden_dim, condition_hidden_dim), nn.ReLU())
         joint_dim = temporal_hidden_dim + descriptor_hidden_dim + condition_hidden_dim
         self.mu_head = nn.Linear(joint_dim, z_dim)
         self.logvar_head = nn.Linear(joint_dim, z_dim)
@@ -97,45 +71,26 @@ class GraphSPIB(nn.Module):
         self.accessibility_head = nn.Sequential(nn.Linear(z_dim, 64), nn.ReLU(), nn.Linear(64, num_accessibility_classes))
 
     def encode_frame(self, batch) -> torch.Tensor:
-        """Encode one time-frame Batch into frame embeddings [B, H]."""
         x = self.node_encoder(batch.x.float())
         edge_attr = batch.edge_attr.float()
         for conv, norm in zip(self.convs, self.norms):
             h = conv(x, batch.edge_index, edge_attr)
             x = norm(F.relu(h) + x)
             x = self.dropout(x)
-
         graph_id = batch.batch
         num_graphs = int(batch.num_graphs)
         center_index = batch.center_index.long().view(-1)
         center = x[center_index]
-
         is_center = torch.zeros(x.size(0), dtype=torch.bool, device=x.device)
         is_center[center_index] = True
         neighbor = ~is_center
         seg_type = batch.segment_type.to(x.device)
-
-        type_pools = []
-        for type_id in range(self.num_segment_types):
-            type_pools.append(_masked_mean(x, graph_id, neighbor & (seg_type == type_id), num_graphs))
+        type_pools = [_masked_mean(x, graph_id, neighbor & (seg_type == type_id), num_graphs) for type_id in range(self.num_segment_types)]
         all_pool = _masked_mean(x, graph_id, neighbor, num_graphs)
-
         edge_graph = graph_id[batch.edge_index[0]]
         edge_attr = batch.edge_attr.float().to(x.device)
-        contact_values = torch.stack(
-            [
-                edge_attr[:, 8],
-                edge_attr[:, 12],
-                edge_attr[:, 13],
-                edge_attr[:, 14],
-                edge_attr[:, 15],
-                edge_attr[:, 0],
-                edge_attr[:, 7],
-            ],
-            dim=-1,
-        )
+        contact_values = torch.stack([edge_attr[:, 7], edge_attr[:, 8], edge_attr[:, 9], edge_attr[:, 10], edge_attr[:, 11], edge_attr[:, 0], edge_attr[:, 6]], dim=-1)
         contact_summary = _mean_by_graph(contact_values, edge_graph, num_graphs)
-
         src, dst = batch.edge_index[0].to(x.device), batch.edge_index[1].to(x.device)
         center_edge = is_center[src] ^ is_center[dst]
         neighbor_node = torch.where(is_center[src], dst, src)
@@ -148,7 +103,6 @@ class GraphSPIB(nn.Module):
                 indicator = (neighbor_type == type_id).float().unsqueeze(-1)
                 radial_parts.append(_masked_mean(indicator, edge_graph, shell_mask, num_graphs))
         radial_shell_summary = torch.cat(radial_parts, dim=-1)
-
         frame_features = torch.cat([center, all_pool, *type_pools, contact_summary, radial_shell_summary], dim=-1)
         return self.frame_proj(frame_features)
 
@@ -169,14 +123,7 @@ class GraphSPIB(nn.Module):
         mu = self.mu_head(joint)
         logvar = self.logvar_head(joint).clamp(min=-8.0, max=8.0)
         z = self.reparameterize(mu, logvar)
-        return {
-            "z": z,
-            "mu": mu,
-            "logvar": logvar,
-            "mobility_logits": self.mobility_head(z),
-            "residence_logits": self.residence_head(z),
-            "accessibility_logits": self.accessibility_head(z),
-        }
+        return {"z": z, "mu": mu, "logvar": logvar, "mobility_logits": self.mobility_head(z), "residence_logits": self.residence_head(z), "accessibility_logits": self.accessibility_head(z)}
 
 
 def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
