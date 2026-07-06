@@ -9,9 +9,8 @@ import numpy as np
 import pandas as pd
 import torch
 
-from pepp_graph_spib.data.graph_window import GraphWindowSample
+from pepp_graph_spib.data.graph_window import GraphWindowSample, dynamic_descriptors_from_metadata
 from pepp_graph_spib.features.graphs import build_local_graph_at_frame, future_labels_from_history_and_future
-from pepp_graph_spib.features.pbc import displacement
 
 
 def _random_walk(rng: np.random.Generator, n_frames: int, n_segments: int, box_len: float, mobility: float) -> np.ndarray:
@@ -114,6 +113,7 @@ def generate_dummy_dataset(cfg: dict, output_path: str | Path, tiny: bool = Fals
                 center_segment_id=center_idx,
                 center_segment_type=int(segment_types[center_idx]),
                 graph_sequence=graph_sequence,
+                dynamic_descriptors=dynamic_descriptors_from_metadata(metadata),
                 condition=condition,
                 future_labels=labels,
                 metadata=metadata,

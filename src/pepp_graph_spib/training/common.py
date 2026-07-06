@@ -19,6 +19,7 @@ def move_batch(batch: dict, device: torch.device) -> dict:
     """Move a collated graph-window batch to device."""
     return {
         "batch_graphs_by_time": [g.to(device) for g in batch["batch_graphs_by_time"]],
+        "dynamic_descriptors": batch["dynamic_descriptors"].to(device),
         "condition": batch["condition"].to(device),
         "labels": {k: v.to(device) for k, v in batch["labels"].items()},
         "metadata": {k: v.to(device) for k, v in batch["metadata"].items()},
@@ -38,12 +39,17 @@ def build_model_from_config(cfg: dict) -> GraphSPIB:
         node_feature_dim=int(data["node_feature_dim"]),
         edge_feature_dim=int(data["edge_feature_dim"]),
         condition_dim=int(data["condition_dim"]),
+        dynamic_descriptor_dim=int(data["dynamic_descriptor_dim"]),
         gnn_hidden_dim=int(model["gnn_hidden_dim"]),
         gnn_layers=int(model["gnn_layers"]),
         temporal_hidden_dim=int(model["temporal_hidden_dim"]),
         temporal_layers=int(model["temporal_layers"]),
+        descriptor_hidden_dim=int(model["descriptor_hidden_dim"]),
         condition_hidden_dim=int(model["condition_hidden_dim"]),
         z_dim=int(model["z_dim"]),
+        num_mobility_classes=int(data["num_mobility_classes"]),
+        num_residence_classes=int(data["num_residence_classes"]),
+        num_accessibility_classes=int(data["num_accessibility_classes"]),
         dropout=float(model["dropout"]),
     )
 
@@ -52,16 +58,28 @@ def build_model_from_config(cfg: dict) -> GraphSPIB:
 def collect_spib_outputs(model: GraphSPIB, loader: Iterable, device: torch.device) -> dict[str, torch.Tensor]:
     """Collect z, probabilities, metadata, conditions, and targets from windows."""
     model.eval()
-    out = {k: [] for k in ["z", "mobility_probs", "relax_probs", "contact_probs", "condition", "y_property"]}
+    out = {
+        k: []
+        for k in [
+            "z",
+            "mobility_probs",
+            "residence_probs",
+            "accessibility_probs",
+            "dynamic_descriptors",
+            "condition",
+            "y_property",
+        ]
+    }
     meta: dict[str, list[torch.Tensor]] = {}
     labels: dict[str, list[torch.Tensor]] = {}
     for batch in loader:
         batch = move_batch(batch, device)
-        pred = model(batch["batch_graphs_by_time"], batch["condition"])
+        pred = model(batch["batch_graphs_by_time"], batch["dynamic_descriptors"], batch["condition"])
         out["z"].append(pred["mu"].detach().cpu())
         out["mobility_probs"].append(pred["mobility_logits"].softmax(dim=-1).detach().cpu())
-        out["relax_probs"].append(pred["relax_logits"].softmax(dim=-1).detach().cpu())
-        out["contact_probs"].append(pred["contact_logits"].softmax(dim=-1).detach().cpu())
+        out["residence_probs"].append(pred["residence_logits"].softmax(dim=-1).detach().cpu())
+        out["accessibility_probs"].append(pred["accessibility_logits"].softmax(dim=-1).detach().cpu())
+        out["dynamic_descriptors"].append(batch["dynamic_descriptors"].detach().cpu())
         out["condition"].append(batch["condition"].detach().cpu())
         out["y_property"].append(batch["labels"]["y_property"].detach().cpu())
         for key, value in batch["metadata"].items():

@@ -1,20 +1,20 @@
 # PE/PP Local Multi-Scale Graph-SPIB
 
-This project implements one first-version architecture for PE/PP blend trajectory learning:
+This project implements the v2 graph descriptor SPIB architecture for PE/PP blend trajectory learning:
 
-`local dynamic graph windows -> graph encoder -> GRU temporal encoder -> SPIB bottleneck -> future dynamic-state prediction -> system distribution pooling -> transport-property prediction -> LASSO descriptor distillation`
+`local graph sequence + explicit dynamic descriptors + condition -> low-dimensional state-predictive bottleneck -> future mobility / residence / accessibility -> system-level transport prediction -> LASSO descriptor distillation`
 
 The project root is `/home/jinhao/mlff/pepp_graph_spib`.
 
 ## Why local multi-scale Graph-SPIB
 
-The task is to learn mobility embeddings from short high-resolution PE/PP trajectories. A small graph is not a proxy for the whole PE/PP system. Each local graph is a sampling unit for local segment mobility, packing, free volume, PE/PP contact, and local relaxation. System-level diffusion, relaxation time, effective pore diffusion, residence time, and accessibility are predicted only after pooling the distribution of many local embeddings by `system_id`.
+The task is to learn transport-relevant local state embeddings from short high-resolution PE/PP trajectories. A small graph is not a proxy for the whole PE/PP system. Each local graph window is a sampling unit for segment mobility, packing, free volume, local composition, and PE/PP contact descriptors. Future mobility, residence, and accessibility are predicted locally; system-level diffusion, relaxation time, effective pore diffusion, residence time, and accessibility are predicted only after pooling many local embeddings by `system_id`.
 
 ## Input definition
 
-Each sample is a `GraphWindowSample(system_id, center_segment_id, center_segment_type, graph_sequence, condition, future_labels, metadata)`. The graph sequence comes from `[t-L, t]`; future labels come from `[t, t+tau]`.
+Each sample is a `GraphWindowSample(system_id, center_segment_id, center_segment_type, graph_sequence, dynamic_descriptors, condition, future_labels, metadata, property_targets)`. The graph sequence and explicit dynamic descriptors come from `[t-L, t]`; future labels come from `[t, t+tau]`.
 
-Node and edge proxy features are computed only from history. Future displacement, future contact persistence, and future relaxation are never written into graph features.
+Node, edge, metadata, and dynamic descriptor proxy features are computed only from history. Future displacement, future residence, and future accessibility are never written into graph features.
 
 Neighbor construction uses NumPy/Torch distance calculations with minimum image convention when a box is available. The project does not use PyG `knn_graph`, `radius_graph`, `NeighborLoader`, `ClusterLoader`, `SparseTensor`, or advanced compiled sampling extensions.
 
@@ -28,9 +28,9 @@ The first PE/PP task has only two polymer identities, so one-hot PE/PP identity,
 
 There is no general pretrained Graph-SPIB model for PE/PP local multi-chain trajectory windows. SimPoly/MLFF provides trajectories, not downstream embeddings, so this model is trained from project data.
 
-## Why not PySR/SISSO in v1
+## Why not PySR/SISSO in v2
 
-The first version uses LASSO sparse regression only. PySR and SISSO are deliberately excluded to keep the environment reproducible and avoid Julia or Fortran/MPI dependencies in the first validation path.
+This version uses LASSO sparse regression only. PySR and SISSO are deliberately excluded to keep the environment reproducible and avoid Julia or Fortran/MPI dependencies in the validation path.
 
 ## Environment
 
@@ -78,4 +78,4 @@ This repository tracks code, configuration, tests, and documentation only. Raw t
 
 ## Baselines and Input Ablations
 
-The reported `baseline_metrics.csv` contains both a trained baseline and input ablation experiments. `condition_only` is a trained baseline using only system conditions. `static_graph_only`, `shuffled_history`, and `no_composition_edges` are input ablations or stress tests for the local multi-scale Graph-SPIB design. `full_graph_spib` loads the trained Graph-SPIB and transport head checkpoints for evaluation.
+The reported `baseline_metrics.csv` contains both a trained baseline and input ablation experiments. `condition_only` is a trained baseline using only system conditions. `static_graph_only`, `shuffled_history`, `no_dynamic_descriptors`, and `no_composition_edges` are input ablations or stress tests for the local graph descriptor SPIB design. `full_graph_descriptor_spib` loads the trained Graph-SPIB and transport head checkpoints for evaluation.

@@ -19,8 +19,8 @@ def _safe_mean(x: torch.Tensor, mask: torch.Tensor, dim: int) -> torch.Tensor:
 def aggregate_system_embeddings(
     z: torch.Tensor,
     mobility_probs: torch.Tensor,
-    relax_probs: torch.Tensor,
-    contact_probs: torch.Tensor,
+    residence_probs: torch.Tensor,
+    accessibility_probs: torch.Tensor,
     system_ids: torch.Tensor,
     center_segment_types: torch.Tensor,
     metadata: dict[str, torch.Tensor],
@@ -38,12 +38,17 @@ def aggregate_system_embeddings(
         idx = mask.to(z.device)
         zi = z[idx]
         mob = mobility_probs[idx]
-        con = contact_probs[idx]
+        res = residence_probs[idx]
+        acc = accessibility_probs[idx]
         center_type = center_segment_types.to(z.device)[idx]
         local_pe = metadata["local_PE_fraction"].to(z.device)[idx]
         pe_pe = metadata["PE_PE_contact_fraction"].to(z.device)[idx]
         pp_pp = metadata["PP_PP_contact_fraction"].to(z.device)[idx]
         pe_pp = metadata["PE_PP_contact_fraction"].to(z.device)[idx]
+        density = metadata["mean_local_density"].to(z.device)[idx]
+        free_volume = metadata["mean_free_volume_proxy"].to(z.device)[idx]
+        displacement = metadata["mean_displacement_norm"].to(z.device)[idx]
+        torsion = metadata["mean_dihedral_transition_proxy"].to(z.device)[idx]
         mean_z = zi.mean(dim=0)
         var_z = zi.var(dim=0, unbiased=False)
         pe_mean = _safe_mean(zi, center_type == 0, zi.size(1))
@@ -54,7 +59,8 @@ def aggregate_system_embeddings(
         interface_mean = _safe_mean(zi, interface, zi.size(1))
         slow_prob = mob[:, 0]
         fast_prob = mob[:, 2]
-        persistent = con[:, 2]
+        persistent_residence = res[:, 2]
+        high_accessibility = acc[:, 2]
         pe_hist = torch.histc(local_pe.float().cpu(), bins=len(pe_hist_bins) - 1, min=0.0, max=1.0).to(z.device)
         pe_hist = pe_hist / pe_hist.sum().clamp_min(1.0)
         local_pp = 1.0 - local_pe
@@ -70,12 +76,19 @@ def aggregate_system_embeddings(
                 [
                     slow_prob.mean(),
                     fast_prob.mean(),
-                    persistent.mean(),
+                    persistent_residence.mean(),
+                    high_accessibility.mean(),
                     entropy(mob).mean(),
-                    entropy(con).mean(),
+                    entropy(res).mean(),
+                    entropy(acc).mean(),
                     pe_pe.mean(),
                     pp_pp.mean(),
                     pe_pp.mean(),
+                    density.mean(),
+                    free_volume.mean(),
+                    displacement.mean(),
+                    torsion.mean(),
+                    interface.float().mean(),
                     slow_prob[pe_rich].mean() if pe_rich.any() else slow_prob.new_tensor(0.0),
                     slow_prob[pp_rich].mean() if pp_rich.any() else slow_prob.new_tensor(0.0),
                     slow_prob[interface].mean() if interface.any() else slow_prob.new_tensor(0.0),
@@ -90,4 +103,4 @@ def aggregate_system_embeddings(
 
 def system_repr_dim(z_dim: int, hist_bins: int = 5) -> int:
     """Return dimensionality of aggregate_system_embeddings output."""
-    return 5 * z_dim + 11 + 2 * hist_bins
+    return 5 * z_dim + 18 + 2 * hist_bins

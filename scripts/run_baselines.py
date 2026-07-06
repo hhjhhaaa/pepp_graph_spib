@@ -32,7 +32,7 @@ def build_system_tensors(cfg, spib, dataset, device):
     loader = make_loader(dataset, int(cfg["training"]["batch_size"]), shuffle=False)
     collected = collect_spib_outputs(spib, loader, device)
     system_repr, unique_ids = aggregate_system_embeddings(
-        collected["z"], collected["mobility_probs"], collected["relax_probs"], collected["contact_probs"],
+        collected["z"], collected["mobility_probs"], collected["residence_probs"], collected["accessibility_probs"],
         collected["metadata"]["system_id"], collected["metadata"]["center_segment_type"], collected["metadata"],
         cfg["data"]["pe_hist_bins"],
     )
@@ -52,7 +52,7 @@ def train_small_control(cfg, dataset_train, dataset_test, device, transform_name
         spib.train()
         for batch in loader:
             batch = move_batch(batch, device)
-            pred = spib(batch["batch_graphs_by_time"], batch["condition"])
+            pred = spib(batch["batch_graphs_by_time"], batch["dynamic_descriptors"], batch["condition"])
             loss = spib_loss(pred, batch["labels"], float(cfg["model"]["beta_kl"]))["loss"]
             opt.zero_grad(set_to_none=True)
             loss.backward()
@@ -77,16 +77,18 @@ def main() -> None:
     parser.add_argument("--config", default="configs/default.yaml")
     parser.add_argument("--spib-checkpoint", required=True)
     parser.add_argument("--transport-checkpoint", required=True)
+    parser.add_argument("--limit-systems", type=int, default=None)
+    parser.add_argument("--limit-samples", type=int, default=None)
     args = parser.parse_args()
     cfg = load_config(args.config)
     set_seed(int(cfg["project"]["seed"]))
     ensure_dirs(cfg)
     device = get_device(cfg)
     graph_path = resolve_path(cfg, "dummy_graph_path") if cfg["data"]["use_dummy"] else resolve_path(cfg, "processed_graph_path")
-    all_data = GraphWindowDataset(str(graph_path))
+    all_data = GraphWindowDataset(str(graph_path), limit_systems=args.limit_systems, limit_samples=args.limit_samples)
     split = make_or_load_split([int(s.system_id) for s in all_data.samples], resolve_path(cfg, "split_path"), int(cfg["project"]["seed"]), cfg["training"]["split_fracs"])
-    train_data = GraphWindowDataset(str(graph_path), set(split["train"]))
-    test_data = GraphWindowDataset(str(graph_path), set(split["test"]))
+    train_data = GraphWindowDataset(str(graph_path), set(split["train"]), args.limit_systems, args.limit_samples)
+    test_data = GraphWindowDataset(str(graph_path), set(split["test"]), args.limit_systems, args.limit_samples)
     targets = cfg["property_targets"]["names"]
     rows = []
 
@@ -119,11 +121,11 @@ def main() -> None:
     head.load_state_dict(torch.load(args.transport_checkpoint, map_location=device, weights_only=False)["model_state"])
     with torch.no_grad():
         pred_full = head(full_repr.to(device), full_cond.to(device)).cpu().numpy()
-    rows.append(regression_metrics(full_y.numpy(), pred_full, targets, "full_graph_spib"))
+    rows.append(regression_metrics(full_y.numpy(), pred_full, targets, "full_graph_descriptor_spib"))
 
-    for name in ["static_graph_only", "shuffled_history", "no_composition_edges"]:
-        tr = GraphWindowDataset(str(graph_path), set(split["train"]), transform=name)
-        te = GraphWindowDataset(str(graph_path), set(split["test"]), transform=name)
+    for name in ["static_graph_only", "shuffled_history", "no_dynamic_descriptors", "no_composition_edges"]:
+        tr = GraphWindowDataset(str(graph_path), set(split["train"]), args.limit_systems, args.limit_samples, transform=name)
+        te = GraphWindowDataset(str(graph_path), set(split["test"]), args.limit_systems, args.limit_samples, transform=name)
         y_true, y_pred = train_small_control(cfg, tr, te, device, name)
         rows.append(regression_metrics(y_true, y_pred, targets, name))
 

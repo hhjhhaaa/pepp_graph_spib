@@ -26,8 +26,8 @@ def build_system_tensors(cfg, spib, dataset, device):
     system_repr, unique_ids = aggregate_system_embeddings(
         collected["z"],
         collected["mobility_probs"],
-        collected["relax_probs"],
-        collected["contact_probs"],
+        collected["residence_probs"],
+        collected["accessibility_probs"],
         collected["metadata"]["system_id"],
         collected["metadata"]["center_segment_type"],
         collected["metadata"],

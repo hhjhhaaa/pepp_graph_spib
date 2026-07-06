@@ -16,7 +16,7 @@ import yaml
 
 import torch
 
-from pepp_graph_spib.data.graph_window import GraphWindowSample
+from pepp_graph_spib.data.graph_window import GraphWindowSample, dynamic_descriptors_from_metadata
 from pepp_graph_spib.features.graphs import build_local_graph_at_frame, future_labels_from_history_and_future
 
 
@@ -208,6 +208,7 @@ def preprocess_to_graph_windows(
                     center_segment_id=int(center_idx),
                     center_segment_type=int(metadata.segment_type[center_idx]),
                     graph_sequence=graph_sequence,
+                    dynamic_descriptors=dynamic_descriptors_from_metadata(window_meta),
                     condition=condition,
                     future_labels=labels,
                     metadata=window_meta,

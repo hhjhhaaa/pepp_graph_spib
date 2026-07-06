@@ -25,7 +25,7 @@ def train_epoch(model, loader, optimizer, device, beta_kl, grad_clip):
     for batch in loader:
         batch = move_batch(batch, device)
         optimizer.zero_grad(set_to_none=True)
-        out = model(batch["batch_graphs_by_time"], batch["condition"])
+        out = model(batch["batch_graphs_by_time"], batch["dynamic_descriptors"], batch["condition"])
         losses = spib_loss(out, batch["labels"], beta_kl)
         losses["loss"].backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
@@ -40,7 +40,7 @@ def eval_epoch(model, loader, device, beta_kl):
     rows = []
     for batch in loader:
         batch = move_batch(batch, device)
-        out = model(batch["batch_graphs_by_time"], batch["condition"])
+        out = model(batch["batch_graphs_by_time"], batch["dynamic_descriptors"], batch["condition"])
         losses = spib_loss(out, batch["labels"], beta_kl)
         rows.append({k: float(v.detach().cpu()) for k, v in losses.items()})
     return pd.DataFrame(rows).mean().to_dict()
@@ -97,7 +97,20 @@ def main() -> None:
     fig_dir = resolve_path(cfg, "figure_dir")
     plot_z_embedding(z, collected["labels"]["y_mobility"].numpy(), fig_dir / "z_embedding_by_mobility.png", "z by mobility", "mobility")
     plot_z_embedding(z, collected["metadata"]["local_PE_fraction"].numpy(), fig_dir / "z_embedding_by_pe_fraction.png", "z by PE fraction", "PE fraction")
-    plot_z_embedding(z, collected["labels"]["y_contact"].numpy(), fig_dir / "z_embedding_by_contact.png", "z by contact", "contact")
+    plot_z_embedding(
+        z,
+        collected["labels"]["y_residence"].numpy(),
+        fig_dir / "z_embedding_by_residence.png",
+        "z by residence",
+        "residence",
+    )
+    plot_z_embedding(
+        z,
+        collected["labels"]["y_accessibility"].numpy(),
+        fig_dir / "z_embedding_by_accessibility.png",
+        "z by accessibility",
+        "accessibility",
+    )
     print(f"saved {ckpt_path}")
 
 

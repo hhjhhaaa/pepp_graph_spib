@@ -24,9 +24,10 @@ data:
   node_feature_dim: 16
   edge_feature_dim: 12
   condition_dim: 6
+  dynamic_descriptor_dim: 8
   num_mobility_classes: 3
-  num_relax_classes: 3
-  num_contact_classes: 3
+  num_residence_classes: 3
+  num_accessibility_classes: 3
   radial_shell_edges_nm: [0.6, 1.2, 2.0, 3.0]
   pe_hist_bins: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
 
@@ -49,13 +50,14 @@ conditions:
     - PP_chain_length
 
 model:
-  name: GraphSPIB
+  name: GraphDescriptorSPIB
   gnn_hidden_dim: 128
   gnn_layers: 3
   temporal_hidden_dim: 128
   temporal_layers: 2
+  descriptor_hidden_dim: 64
   condition_hidden_dim: 64
-  z_dim: 2
+  z_dim: 4
   dropout: 0.1
   beta_kl: 1.0e-3
 
@@ -73,8 +75,8 @@ training:
 
 loss:
   weight_mobility: 1.0
-  weight_relax: 0.5
-  weight_contact: 0.5
+  weight_residence: 1.0
+  weight_accessibility: 1.0
   weight_kl: 1.0
 
 property_targets:
@@ -90,5 +92,7 @@ symbolic:
   target_names:
     - z1
     - z2
+    - z3
+    - z4
     - log_D
     - log_tau_relax

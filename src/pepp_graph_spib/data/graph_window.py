@@ -10,13 +10,43 @@ from torch.utils.data import Dataset
 from torch_geometric.data import Batch, Data
 
 
+DYNAMIC_DESCRIPTOR_KEYS = [
+    "mean_local_density",
+    "mean_free_volume_proxy",
+    "mean_displacement_norm",
+    "mean_dihedral_transition_proxy",
+    "PE_PP_contact_fraction",
+    "local_PE_fraction",
+    "local_PP_fraction",
+    "interface_flag",
+]
+
+
+def dynamic_descriptors_from_metadata(metadata: dict[str, float | int]) -> torch.Tensor:
+    """Return the v2 explicit dynamic descriptor vector for one local window."""
+    return torch.tensor(
+        [
+            float(metadata.get("mean_local_density", 0.0)),
+            float(metadata.get("mean_free_volume_proxy", 0.0)),
+            float(metadata.get("mean_displacement_norm", 0.0)),
+            float(metadata.get("mean_dihedral_transition_proxy", 0.0)),
+            float(metadata.get("PE_PP_contact_fraction", 0.0)),
+            float(metadata.get("local_PE_fraction", 0.0)),
+            float(metadata.get("local_PP_fraction", 0.0)),
+            1.0 if int(metadata.get("environment_type", 1)) == 1 else 0.0,
+        ],
+        dtype=torch.float32,
+    )
+
+
 @dataclass
 class GraphWindowSample:
     """One segment-centered local dynamic graph window.
 
     graph_sequence is a list of PyG Data objects, length history_len.
+    dynamic_descriptors has shape [dynamic_descriptor_dim].
     condition has shape [condition_dim].
-    future_labels stores integer class labels for mobility, relaxation, contact.
+    future_labels stores integer class labels for mobility, residence, accessibility.
     metadata stores per-window historical descriptors used for pooling/export.
     """
 
@@ -24,6 +54,7 @@ class GraphWindowSample:
     center_segment_id: int
     center_segment_type: int
     graph_sequence: list[Data]
+    dynamic_descriptors: torch.Tensor
     condition: torch.Tensor
     future_labels: dict[str, int]
     metadata: dict[str, float | int]
@@ -78,6 +109,8 @@ def transform_sample(sample: GraphWindowSample, transform: str) -> GraphWindowSa
         for graph in out.graph_sequence:
             if graph.edge_attr is not None and graph.edge_attr.size(1) >= 11:
                 graph.edge_attr[:, 8:11] = 0.0
+    elif transform == "no_dynamic_descriptors":
+        out.dynamic_descriptors = torch.zeros_like(out.dynamic_descriptors)
     else:
         raise ValueError(f"Unknown transform: {transform}")
     return out
@@ -87,17 +120,20 @@ def collate_graph_windows(samples: list[GraphWindowSample]) -> dict[str, Any]:
     """Batch local dynamic graph windows.
 
     Returns batch_graphs_by_time as a list of PyG Batch objects, each containing
-    all graphs at one history index. Conditions have shape [B, condition_dim].
+    all graphs at one history index. Descriptors and conditions have shape [B, D].
     """
     history_len = len(samples[0].graph_sequence)
     batch_graphs_by_time = [
         Batch.from_data_list([sample.graph_sequence[t] for sample in samples]) for t in range(history_len)
     ]
     condition = torch.stack([sample.condition.float() for sample in samples], dim=0)
+    dynamic_descriptors = torch.stack([sample.dynamic_descriptors.float() for sample in samples], dim=0)
     labels = {
         "y_mobility": torch.tensor([sample.future_labels["mobility"] for sample in samples], dtype=torch.long),
-        "y_relax": torch.tensor([sample.future_labels["relax"] for sample in samples], dtype=torch.long),
-        "y_contact": torch.tensor([sample.future_labels["contact"] for sample in samples], dtype=torch.long),
+        "y_residence": torch.tensor([sample.future_labels["residence"] for sample in samples], dtype=torch.long),
+        "y_accessibility": torch.tensor(
+            [sample.future_labels["accessibility"] for sample in samples], dtype=torch.long
+        ),
         "y_property": torch.stack([sample.property_targets.float() for sample in samples], dim=0),
     }
     metadata_keys = [
@@ -123,6 +159,7 @@ def collate_graph_windows(samples: list[GraphWindowSample]) -> dict[str, Any]:
     metadata["center_segment_id"] = torch.tensor([int(sample.center_segment_id) for sample in samples], dtype=torch.long)
     return {
         "batch_graphs_by_time": batch_graphs_by_time,
+        "dynamic_descriptors": dynamic_descriptors,
         "condition": condition,
         "labels": labels,
         "metadata": metadata,

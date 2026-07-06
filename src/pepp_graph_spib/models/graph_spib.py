@@ -27,6 +27,7 @@ class GraphSPIB(nn.Module):
 
     forward input:
         batch_graphs_by_time: list length history_len, each item PyG Batch.
+        dynamic_descriptors: tensor [B, dynamic_descriptor_dim].
         condition: tensor [B, condition_dim].
     forward output:
         z/mu/logvar [B, z_dim], logits [B, 3].
@@ -37,15 +38,17 @@ class GraphSPIB(nn.Module):
         node_feature_dim: int,
         edge_feature_dim: int,
         condition_dim: int,
+        dynamic_descriptor_dim: int,
         gnn_hidden_dim: int = 128,
         gnn_layers: int = 3,
         temporal_hidden_dim: int = 128,
         temporal_layers: int = 2,
+        descriptor_hidden_dim: int = 64,
         condition_hidden_dim: int = 64,
-        z_dim: int = 2,
+        z_dim: int = 4,
         num_mobility_classes: int = 3,
-        num_relax_classes: int = 3,
-        num_contact_classes: int = 3,
+        num_residence_classes: int = 3,
+        num_accessibility_classes: int = 3,
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
@@ -74,18 +77,26 @@ class GraphSPIB(nn.Module):
             dropout=dropout if temporal_layers > 1 else 0.0,
             batch_first=True,
         )
+        self.descriptor_encoder = nn.Sequential(
+            nn.Linear(dynamic_descriptor_dim, descriptor_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(descriptor_hidden_dim, descriptor_hidden_dim),
+            nn.ReLU(),
+        )
         self.condition_encoder = nn.Sequential(
             nn.Linear(condition_dim, condition_hidden_dim),
             nn.ReLU(),
             nn.Linear(condition_hidden_dim, condition_hidden_dim),
             nn.ReLU(),
         )
-        joint_dim = temporal_hidden_dim + condition_hidden_dim
+        joint_dim = temporal_hidden_dim + descriptor_hidden_dim + condition_hidden_dim
         self.mu_head = nn.Linear(joint_dim, z_dim)
         self.logvar_head = nn.Linear(joint_dim, z_dim)
         self.mobility_head = nn.Sequential(nn.Linear(z_dim, 64), nn.ReLU(), nn.Linear(64, num_mobility_classes))
-        self.relax_head = nn.Sequential(nn.Linear(z_dim, 64), nn.ReLU(), nn.Linear(64, num_relax_classes))
-        self.contact_head = nn.Sequential(nn.Linear(z_dim, 64), nn.ReLU(), nn.Linear(64, num_contact_classes))
+        self.residence_head = nn.Sequential(nn.Linear(z_dim, 64), nn.ReLU(), nn.Linear(64, num_residence_classes))
+        self.accessibility_head = nn.Sequential(
+            nn.Linear(z_dim, 64), nn.ReLU(), nn.Linear(64, num_accessibility_classes)
+        )
 
     def encode_frame(self, batch) -> torch.Tensor:
         """Encode one time-frame Batch into frame embeddings [B, H]."""
@@ -145,13 +156,19 @@ class GraphSPIB(nn.Module):
             return mu + torch.randn_like(std) * std
         return mu
 
-    def forward(self, batch_graphs_by_time: list, condition: torch.Tensor) -> dict[str, torch.Tensor]:
+    def forward(
+        self,
+        batch_graphs_by_time: list,
+        dynamic_descriptors: torch.Tensor,
+        condition: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
         frame_embeddings = [self.encode_frame(batch) for batch in batch_graphs_by_time]
         sequence = torch.stack(frame_embeddings, dim=1)
         _, h_n = self.temporal(sequence)
         temporal_h = h_n[-1]
+        desc_h = self.descriptor_encoder(dynamic_descriptors.float())
         cond_h = self.condition_encoder(condition.float())
-        joint = torch.cat([temporal_h, cond_h], dim=-1)
+        joint = torch.cat([temporal_h, desc_h, cond_h], dim=-1)
         mu = self.mu_head(joint)
         logvar = self.logvar_head(joint).clamp(min=-8.0, max=8.0)
         z = self.reparameterize(mu, logvar)
@@ -160,8 +177,8 @@ class GraphSPIB(nn.Module):
             "mu": mu,
             "logvar": logvar,
             "mobility_logits": self.mobility_head(z),
-            "relax_logits": self.relax_head(z),
-            "contact_logits": self.contact_head(z),
+            "residence_logits": self.residence_head(z),
+            "accessibility_logits": self.accessibility_head(z),
         }
 
 
@@ -173,8 +190,8 @@ def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
 def spib_loss(outputs: dict[str, torch.Tensor], labels: dict[str, torch.Tensor], beta_kl: float) -> dict[str, torch.Tensor]:
     """Compute Graph-SPIB future-state loss."""
     ce_m = F.cross_entropy(outputs["mobility_logits"], labels["y_mobility"])
-    ce_r = F.cross_entropy(outputs["relax_logits"], labels["y_relax"])
-    ce_c = F.cross_entropy(outputs["contact_logits"], labels["y_contact"])
+    ce_r = F.cross_entropy(outputs["residence_logits"], labels["y_residence"])
+    ce_a = F.cross_entropy(outputs["accessibility_logits"], labels["y_accessibility"])
     kl = kl_divergence(outputs["mu"], outputs["logvar"])
-    total = ce_m + 0.5 * ce_r + 0.5 * ce_c + beta_kl * kl
-    return {"loss": total, "mobility": ce_m, "relax": ce_r, "contact": ce_c, "kl": kl}
+    total = ce_m + ce_r + ce_a + beta_kl * kl
+    return {"loss": total, "mobility": ce_m, "residence": ce_r, "accessibility": ce_a, "kl": kl}

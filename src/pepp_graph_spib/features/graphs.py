@@ -178,8 +178,9 @@ def future_labels_from_history_and_future(
     fdisp = float(np.linalg.norm(displacement(now, future, box)))
     mobility_score = fdisp + 0.8 * free_volume_proxy - 0.15 * local_density - 0.6 * pepp_contact_fraction
     mobility_score += 0.004 * (temperature - 550.0) - 1.8 * (density - 0.85)
-    relax_score = 0.7 * fdisp + 0.5 * free_volume_proxy - 0.1 * local_density
-    contact_score = pepp_contact_fraction + 0.5 * density - 0.2 * free_volume_proxy
+    residence_score = pepp_contact_fraction + 0.6 * density - 0.35 * free_volume_proxy - 0.25 * fdisp
+    accessibility_score = 0.9 * free_volume_proxy + 0.45 * fdisp - 0.35 * local_density
+    accessibility_score += 0.002 * (temperature - 550.0) - 0.4 * pepp_contact_fraction
 
     def bin3(value: float, lo: float, hi: float) -> int:
         if value < lo:
@@ -190,6 +191,6 @@ def future_labels_from_history_and_future(
 
     return {
         "mobility": bin3(mobility_score, 0.35, 0.95),
-        "relax": bin3(relax_score, 0.25, 0.75),
-        "contact": bin3(contact_score, 0.25, 0.65),
+        "residence": bin3(residence_score, 0.35, 0.85),
+        "accessibility": bin3(accessibility_score, 0.15, 0.55),
     }
