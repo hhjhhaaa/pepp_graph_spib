@@ -77,7 +77,6 @@ SYSTEM_TARGET_NAMES = [
     "log_tau_segmental",
     "log_tau_res",
     "P_access",
-    "reaction_opportunity_index",
 ]
 
 

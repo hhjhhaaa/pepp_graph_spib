@@ -17,7 +17,7 @@ def run_lasso_table(df: pd.DataFrame, targets: list[str], alpha: float = 0.01) -
         if c.startswith("target_")
         or c.startswith("log_D")
         or c.startswith("log_tau")
-        or c in {"P_access", "D_eff", "reaction_opportunity_index"}
+        or c in {"P_access", "D_eff", "transport_score"}
     }
     exclude = set(available_targets + ["system_id"]) | target_like
     feature_cols = [c for c in df.columns if c not in exclude and pd.api.types.is_numeric_dtype(df[c])]

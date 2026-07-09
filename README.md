@@ -92,7 +92,6 @@ log_D_eff
 log_tau_segmental
 log_tau_res
 P_access
-reaction_opportunity_index
 ```
 
 ## Physics Transport Head
@@ -106,7 +105,6 @@ C_axis in [0, 1]
 tau_wall > 0
 tau_move > 0
 P_access in [0, 1]
-active_site_residence_fraction in [0, 1]
 ```
 
 Then derives:
@@ -114,12 +112,10 @@ Then derives:
 ```text
 transport_score = P_entry * C_axis / (1 + tau_wall / tau_move)
 D_eff = D_local * transport_score
-reaction_opportunity_index = P_entry * P_access * active_site_residence_fraction
 ```
 
-`tau_wall / tau_move` is treated as a transport drag term. Reaction opportunity
-uses a separate active-site residence factor because wall trapping can help
-surface reactions while hurting pore transport efficiency.
+`tau_wall / tau_move` is treated as a transport drag term. LD-TDN is a
+pore-confined transport descriptor model, not a reactivity model.
 
 ## Smoke Workflow
 

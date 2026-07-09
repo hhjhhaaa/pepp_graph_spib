@@ -16,7 +16,6 @@ def test_physics_transport_head_constraints():
         "C_axis",
         "P_access",
         "wall_residence_fraction",
-        "active_site_residence_fraction",
         "transport_score",
     ]:
         assert torch.all((out[key] >= 0) & (out[key] <= 1))

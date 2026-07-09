@@ -125,10 +125,8 @@ def main() -> None:
         "tau_move",
         "P_access",
         "wall_residence_fraction",
-        "active_site_residence_fraction",
         "transport_score",
         "D_eff",
-        "reaction_opportunity_index",
     ]:
         df[key] = pred[key].detach().cpu().numpy()
     df.to_csv(resolve_path(cfg, "log_dir") / "transport_predictions.csv", index=False)

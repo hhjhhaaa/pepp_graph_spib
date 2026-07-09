@@ -38,10 +38,8 @@ REQUIRED_DESCRIPTOR_COLUMNS = [
     "tau_move",
     "P_access",
     "wall_residence_fraction",
-    "active_site_residence_fraction",
     "transport_score",
     "D_eff",
-    "reaction_opportunity_index",
     *[f"target_{name}" for name in SYSTEM_TARGET_NAMES],
 ]
 

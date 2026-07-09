@@ -255,8 +255,6 @@ def generate_dummy_dataset(cfg: dict, output_path: str | Path, tiny: bool = Fals
         log_tau_segmental = 1.2 - 1.1 * mean_disp + 1.5 * cond["density"] + chain_penalty
         log_tau_res = 1.0 + 1.8 * wall + 0.4 * cond["surface_hydroxylation_fraction"]
         p_access = float(1.0 / (1.0 + np.exp(-(2.2 * mean_free + 1.1 * frac_fast - 0.9 * wall))))
-        active_site_residence = float(np.clip(0.35 + 0.45 * wall + 0.2 * frac_escape, 0.0, 1.0))
-        roi = float(np.clip(p_access * active_site_residence, 0.0, 1.0))
         target_meta = {
             "log_D_self": log_d_self,
             "log_D_parallel": log_d_parallel,
@@ -264,7 +262,6 @@ def generate_dummy_dataset(cfg: dict, output_path: str | Path, tiny: bool = Fals
             "log_tau_segmental": log_tau_segmental,
             "log_tau_res": log_tau_res,
             "P_access": p_access,
-            "reaction_opportunity_index": roi,
         }
         target = torch.tensor([target_meta[name] for name in SYSTEM_TARGET_NAMES], dtype=torch.float32)
         raw_targets[system_id] = target

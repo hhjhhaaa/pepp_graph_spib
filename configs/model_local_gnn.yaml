@@ -92,8 +92,7 @@ system_targets:
     - log_tau_segmental
     - log_tau_res
     - P_access
-    - reaction_opportunity_index
 
 symbolic:
   lasso_alpha: 0.01
-  target_names: [z1, z2, z3, z4, D_eff, P_access, reaction_opportunity_index]
+  target_names: [z1, z2, z3, z4, D_eff, P_access, transport_score]
