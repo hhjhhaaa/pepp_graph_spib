@@ -1,20 +1,18 @@
-
-"""Build system-level physical descriptor tables from Graph-SPIB outputs."""
+"""Build LD-TDN system descriptor tables for sparse distillation."""
 
 from __future__ import annotations
 
 import pandas as pd
 import torch
 
-from pepp_graph_spib.models.system_pooling import aggregate_system_embeddings
+from pepp_graph_spib.data.sample import CONDITION_NAMES, SYSTEM_TARGET_NAMES
+from pepp_graph_spib.models.heads.physics_transport_head import PhysicsTransportHead
+from pepp_graph_spib.models.pooling.region_pooling import REGION_SCALAR_NAMES, RegionPooling, region_repr_dim
 
 
 REQUIRED_DESCRIPTOR_COLUMNS = [
     "system_id",
-    "z1",
-    "z2",
-    "z3",
-    "z4",
+    *CONDITION_NAMES,
     "mean_z1",
     "mean_z2",
     "mean_z3",
@@ -23,119 +21,81 @@ REQUIRED_DESCRIPTOR_COLUMNS = [
     "var_z2",
     "var_z3",
     "var_z4",
-    "density",
-    "temperature",
-    "PE_fraction",
-    "PP_fraction",
-    "PE_chain_length",
-    "PP_chain_length",
-    "mean_dynamic_local_density",
-    "mean_dynamic_free_volume_proxy",
-    "mean_dynamic_displacement_norm",
-    "mean_dynamic_dihedral_transition_proxy",
-    "mean_dynamic_PEPP_contact_fraction",
-    "mean_dynamic_local_PE_fraction",
-    "mean_dynamic_local_PP_fraction",
-    "mean_dynamic_interface_flag",
-    "mean_local_density",
-    "mean_free_volume_proxy",
-    "mean_PEPP_contact_fraction",
-    "mean_displacement_norm",
-    "mean_dihedral_transition_proxy",
     "fraction_fast",
     "fraction_slow",
-    "fraction_persistent_residence",
-    "fraction_high_accessibility",
-    "PE_PE_contact_fraction",
-    "PP_PP_contact_fraction",
-    "PE_PP_contact_fraction",
-    "log_D",
-    "log_tau_relax",
-    "log_D_eff",
-    "tau_res",
+    "fraction_persistent_contact",
+    "fraction_wall_resident",
+    "fraction_escape_ready",
+    "mean_free_volume_proxy",
+    "mean_wall_distance",
+    "mean_local_density",
+    "mean_PE_fraction",
+    "mean_PP_fraction",
+    "mean_PC_fraction",
+    "P_entry",
+    "C_axis",
+    "tau_wall",
+    "tau_move",
     "P_access",
+    "wall_residence_fraction",
+    "active_site_residence_fraction",
+    "transport_score",
+    "D_eff",
+    "reaction_opportunity_index",
+    *[f"target_{name}" for name in SYSTEM_TARGET_NAMES],
 ]
 
 
-def build_descriptor_table(collected: dict, pe_hist_bins: list[float]) -> pd.DataFrame:
-    """Return one descriptor row per system.
-
-    The table contains z summaries, historical physical proxy descriptors,
-    local PE/PP composition histograms, contact fractions, future-state probabilities,
-    global conditions, and system-level transport targets.
-    """
-    _, unique_ids = aggregate_system_embeddings(
-        collected["z"],
-        collected["mobility_probs"],
-        collected["residence_probs"],
-        collected["accessibility_probs"],
-        collected["metadata"]["system_id"],
-        collected["metadata"]["center_segment_type"],
+def build_descriptor_table(
+    collected: dict,
+    condition_names: list[str] | None = None,
+    transport_head: PhysicsTransportHead | None = None,
+) -> pd.DataFrame:
+    """Return one descriptor row per system."""
+    condition_names = condition_names or CONDITION_NAMES
+    z = collected.get("mu", collected["z"])
+    pooling = RegionPooling()
+    system_repr, unique_ids, system_condition = pooling(
+        z,
+        collected["local_outputs"],
         collected["metadata"],
-        pe_hist_bins,
+        collected["condition"],
     )
+    if transport_head is None:
+        transport_head = PhysicsTransportHead(region_repr_dim(z.size(1)), system_condition.size(1))
+    transport_head.eval()
+    with torch.no_grad():
+        physics = transport_head(system_repr, system_condition)
     rows = []
-    hist_bins = len(pe_hist_bins) - 1
-    for sid in unique_ids.tolist():
+    for row_idx, sid in enumerate(unique_ids.detach().cpu().tolist()):
         mask = collected["metadata"]["system_id"] == sid
-        z = collected["z"][mask]
-        dynamic = collected["dynamic_descriptors"][mask]
-        md = {k: v[mask] for k, v in collected["metadata"].items()}
-        cond = collected["condition"][mask][0]
-        y = collected["y_property"][mask][0]
-        pe_hist = torch.histc(md["local_PE_fraction"].float(), bins=hist_bins, min=0.0, max=1.0)
-        pe_hist = pe_hist / pe_hist.sum().clamp_min(1.0)
-        pp_hist = torch.histc(md["local_PP_fraction"].float(), bins=hist_bins, min=0.0, max=1.0)
-        pp_hist = pp_hist / pp_hist.sum().clamp_min(1.0)
-        row = {
-            "system_id": sid,
-            "density": float(cond[0]),
-            "temperature": float(cond[1] * 1000.0),
-            "PE_fraction": float(cond[2]),
-            "PP_fraction": float(cond[3]),
-            "PE_chain_length": float(cond[4] * 200.0),
-            "PP_chain_length": float(cond[5] * 200.0),
-            "mean_dynamic_local_density": float(dynamic[:, 0].mean()),
-            "mean_dynamic_free_volume_proxy": float(dynamic[:, 1].mean()),
-            "mean_dynamic_displacement_norm": float(dynamic[:, 2].mean()),
-            "mean_dynamic_dihedral_transition_proxy": float(dynamic[:, 3].mean()),
-            "mean_dynamic_PEPP_contact_fraction": float(dynamic[:, 4].mean()),
-            "mean_dynamic_local_PE_fraction": float(dynamic[:, 5].mean()),
-            "mean_dynamic_local_PP_fraction": float(dynamic[:, 6].mean()),
-            "mean_dynamic_interface_flag": float(dynamic[:, 7].mean()),
-            "mean_local_density": float(md["mean_local_density"].mean()),
-            "mean_free_volume_proxy": float(md["mean_free_volume_proxy"].mean()),
-            "mean_PEPP_contact_fraction": float(md["PE_PP_contact_fraction"].mean()),
-            "mean_displacement_norm": float(md["mean_displacement_norm"].mean()),
-            "mean_dihedral_transition_proxy": float(md["mean_dihedral_transition_proxy"].mean()),
-            "fraction_fast": float(collected["mobility_probs"][mask][:, 2].mean()),
-            "fraction_slow": float(collected["mobility_probs"][mask][:, 0].mean()),
-            "fraction_persistent_residence": float(collected["residence_probs"][mask][:, 2].mean()),
-            "fraction_high_accessibility": float(collected["accessibility_probs"][mask][:, 2].mean()),
-            "PE_PE_contact_fraction": float(md["PE_PE_contact_fraction"].mean()),
-            "PP_PP_contact_fraction": float(md["PP_PP_contact_fraction"].mean()),
-            "PE_PP_contact_fraction": float(md["PE_PP_contact_fraction"].mean()),
-            "log_D": float(y[0]),
-            "log_tau_relax": float(y[1]),
-            "log_D_eff": float(y[2]),
-            "tau_res": float(y[3]),
-            "P_access": float(y[4]),
-        }
-        for i in range(z.size(1)):
-            row[f"z{i + 1}"] = float(z[:, i].mean())
-            row[f"mean_z{i + 1}"] = float(z[:, i].mean())
-            row[f"var_z{i + 1}"] = float(z[:, i].var(unbiased=False))
-        for class_idx, name in enumerate(["slow", "medium", "fast"]):
-            row[f"mean_mobility_prob_{name}"] = float(collected["mobility_probs"][mask][:, class_idx].mean())
-        for class_idx, name in enumerate(["short", "intermediate", "persistent"]):
-            row[f"mean_residence_prob_{name}"] = float(collected["residence_probs"][mask][:, class_idx].mean())
-        for class_idx, name in enumerate(["low", "medium", "high"]):
-            row[f"mean_accessibility_prob_{name}"] = float(
-                collected["accessibility_probs"][mask][:, class_idx].mean()
-            )
-        for i, value in enumerate(pe_hist.tolist()):
-            row[f"local_PE_fraction_hist_bin_{i}"] = float(value)
-        for i, value in enumerate(pp_hist.tolist()):
-            row[f"local_PP_fraction_hist_bin_{i}"] = float(value)
+        zi = z[mask]
+        row = {"system_id": int(sid)}
+        for i, name in enumerate(condition_names):
+            row[name] = float(system_condition[row_idx, i].detach().cpu())
+        for i in range(zi.size(1)):
+            row[f"z{i + 1}"] = float(zi[:, i].mean())
+            row[f"mean_z{i + 1}"] = float(zi[:, i].mean())
+            row[f"var_z{i + 1}"] = float(zi[:, i].var(unbiased=False))
+        offset = 2 * zi.size(1)
+        for i, name in enumerate(REGION_SCALAR_NAMES):
+            export_name = name
+            if name == "mean_local_PE_fraction":
+                export_name = "mean_PE_fraction"
+            elif name == "mean_local_PP_fraction":
+                export_name = "mean_PP_fraction"
+            elif name == "mean_local_PC_fraction":
+                export_name = "mean_PC_fraction"
+            row[export_name] = float(system_repr[row_idx, offset + i].detach().cpu())
+        for i in range(4):
+            row[f"radial_bin_fraction_{i}"] = float(system_repr[row_idx, offset + len(REGION_SCALAR_NAMES) + i].detach().cpu())
+            row[f"axial_bin_fraction_{i}"] = float(system_repr[row_idx, offset + len(REGION_SCALAR_NAMES) + 4 + i].detach().cpu())
+        for key, value in physics.items():
+            row[key] = float(value[row_idx].detach().cpu())
+        target = collected["system_targets"][mask][0]
+        target_mask = collected["target_mask"][mask][0]
+        for i, name in enumerate(SYSTEM_TARGET_NAMES):
+            if float(target_mask[i]) > 0.5:
+                row[f"target_{name}"] = float(target[i])
         rows.append(row)
     return pd.DataFrame(rows)

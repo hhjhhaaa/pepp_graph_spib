@@ -1,81 +1,157 @@
-# PE/PP Local Multi-Scale Graph-SPIB
+# LD-TDN: Local Dynamic Transport Descriptor Network
 
-This project implements the v2 graph descriptor SPIB architecture for PE/PP blend trajectory learning:
+This repository is no longer a Graph-SPIB demo. It is a lightweight **Local Dynamic Transport Descriptor Network (LD-TDN)** for ps-scale local polymer trajectory windows.
 
-`local graph sequence + explicit dynamic descriptors + condition -> low-dimensional state-predictive bottleneck -> future mobility / residence / accessibility -> system-level transport prediction -> LASSO descriptor distillation`
+The model is deliberately **not** a full-system atomistic GNN. The default path is:
 
-The project root is `/home/jinhao/mlff/pepp_graph_spib`.
-
-## Why local multi-scale Graph-SPIB
-
-The task is to learn transport-relevant local state embeddings from short high-resolution PE/PP trajectories. A small graph is not a proxy for the whole PE/PP system. Each local graph window is a sampling unit for segment mobility, packing, free volume, local composition, and PE/PP contact descriptors. Future mobility, residence, and accessibility are predicted locally; system-level diffusion, relaxation time, effective pore diffusion, residence time, and accessibility are predicted only after pooling many local embeddings by `system_id`.
-
-## Input definition
-
-Each sample is a `GraphWindowSample(system_id, center_segment_id, center_segment_type, graph_sequence, dynamic_descriptors, condition, future_labels, metadata, property_targets)`. The graph sequence and explicit dynamic descriptors come from `[t-L, t]`; future labels come from `[t, t+tau]`.
-
-Node, edge, metadata, and dynamic descriptor proxy features are computed only from history. Future displacement, future residence, and future accessibility are never written into graph features.
-
-Neighbor construction uses NumPy/Torch distance calculations with minimum image convention when a box is available. The project does not use PyG `knn_graph`, `radius_graph`, `NeighborLoader`, `ClusterLoader`, `SparseTensor`, or advanced compiled sampling extensions.
-
-## Why not single-chain or full raw-box graph
-
-A single chain would remove the PE/PP mixed local environment and contact history. A full simulation-box raw graph would make the model learn system size and sampling artifacts while adding unnecessary graph-sampling complexity. Segment-centered local dynamic windows keep the model focused on transferable local dynamics.
-
-## Why not polyBERT, TransPolymer, or pretrained Graph-SPIB
-
-The first PE/PP task has only two polymer identities, so one-hot PE/PP identity, local composition, contact graph features, and global condition variables are sufficient. Polymer language models may be useful later for many-chemistry extensions, but they are not part of the first architecture.
-
-There is no general pretrained Graph-SPIB model for PE/PP local multi-chain trajectory windows. SimPoly/MLFF provides trajectories, not downstream embeddings, so this model is trained from project data.
-
-## Why not PySR/SISSO in v2
-
-This version uses LASSO sparse regression only. PySR and SISSO are deliberately excluded to keep the environment reproducible and avoid Julia or Fortran/MPI dependencies in the validation path.
-
-## Environment
-
-Install Miniforge in WSL, then:
-
-```bash
-conda create -n pepp-graph-spib python=3.11 -y
-conda activate pepp-graph-spib
-python -m pip install --upgrade pip setuptools wheel
-conda install -y -c conda-forge numpy scipy pandas scikit-learn matplotlib seaborn tqdm pyyaml h5py joblib mdanalysis freud ripser pytest black ruff tensorboard
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
-pip install torch_geometric
-pip install -e .
-python scripts/check_env.py
+```text
+short local trajectory window
+→ descriptor feature_sequence [T, F]
+→ GRU/TCN temporal encoder
+→ predictive variational bottleneck
+→ z_i local dynamic transport descriptor
+→ local future-dynamics heads
+→ region-wise pooling over systems / pore bins
+→ physics-informed transport head
+→ descriptor table
+→ LASSO descriptor distillation
 ```
 
-For RTX 5090, use the PyTorch official selector and prefer CUDA 12.8 wheels. If the CUDA 12.8 wheel fails, do not install CUDA 12.4 by default; choose the current official supported CUDA wheel.
+A local ego-GNN is available as an optional encoder, but it only encodes small local graphs and never builds a graph over thousands of atoms.
 
-## Dummy data and training
+## Methodological Reference
+
+LD-TDN follows the spirit of Chen et al., "Constructing custom thermodynamics using deep learning", *Nature Computational Science* 4, 66-85 (2024), DOI: `10.1038/s43588-023-00581-5`.
+
+The useful lesson is not to make a larger black-box model. The paper learns reduced thermodynamic coordinates and a structured stochastic macroscopic dynamics from microscopic trajectory observations, guided by a generalized Onsager principle. LD-TDN adapts that idea as:
+
+- learned local closure coordinates: `z_i`
+- explicit controllable physical conditions: chain length, repeat units, composition, density, temperature, pore geometry, and wall chemistry
+- predictive short-future losses so `z_i` captures local dynamic transport state
+- positive/bounded physical transport factors instead of an unconstrained property MLP
+- exported descriptors and factors for sparse regression and interpretation
+
+## Explicit Conditions
+
+Chain length and repeat-unit counts are first-class model inputs. They are not expected to be inferred from local graphs.
+
+Configured condition variables:
+
+```text
+density
+temperature
+PE_fraction
+PP_fraction
+PC_fraction
+PE_chain_length
+PP_chain_length
+PC_chain_length
+PE_repeat_units
+PP_repeat_units
+PC_repeat_units
+mean_chain_length
+chain_length_polydispersity
+pore_diameter
+pore_length
+silanol_density
+wall_type_id
+surface_hydroxylation_fraction
+```
+
+## Local Labels And System Targets
+
+Local classification heads:
+
+```text
+mobility_class
+contact_class
+residence_class
+escape_class
+relax_class
+```
+
+Local regression heads:
+
+```text
+future_disp_parallel
+future_disp_radial
+future_disp_norm
+short_msd_parallel
+short_msd_radial
+contact_survival
+wall_contact_survival
+free_volume_opening
+```
+
+System / pore targets use masks so real datasets may omit some labels:
+
+```text
+log_D_self
+log_D_parallel
+log_D_eff
+log_tau_segmental
+log_tau_res
+P_access
+reaction_opportunity_index
+```
+
+## Physics Transport Head
+
+The physics head predicts:
+
+```text
+D_local > 0
+P_entry in [0, 1]
+C_axis in [0, 1]
+tau_wall > 0
+tau_move > 0
+P_access in [0, 1]
+active_site_residence_fraction in [0, 1]
+```
+
+Then derives:
+
+```text
+transport_score = P_entry * C_axis / (1 + tau_wall / tau_move)
+D_eff = D_local * transport_score
+reaction_opportunity_index = P_entry * P_access * active_site_residence_fraction
+```
+
+`tau_wall / tau_move` is treated as a transport drag term. Reaction opportunity
+uses a separate active-site residence factor because wall trapping can help
+surface reactions while hurting pore transport efficiency.
+
+## Smoke Workflow
+
+Dummy v1 is PE/PP-only. PC condition fields are schema placeholders and are set
+to zero until real PC preprocessing is implemented.
 
 ```bash
-python scripts/make_dummy_graph_data.py --config configs/default.yaml --output data/dummy/dummy_graph_windows.pt
-python scripts/train_graph_spib.py --config configs/default.yaml
-python scripts/train_transport_head.py --config configs/default.yaml --checkpoint outputs/checkpoints/graph_spib_best.pt
-python scripts/run_baselines.py --config configs/default.yaml --spib-checkpoint outputs/checkpoints/graph_spib_best.pt --transport-checkpoint outputs/checkpoints/transport_head_best.pt
-python scripts/export_descriptor_table.py --config configs/default.yaml --spib-checkpoint outputs/checkpoints/graph_spib_best.pt --transport-checkpoint outputs/checkpoints/transport_head_best.pt --output outputs/embeddings/descriptor_table.csv
-python scripts/run_symbolic_lasso.py --config configs/default.yaml --descriptor-table outputs/embeddings/descriptor_table.csv
+python scripts/make_dummy_graph_data.py --config configs/model_descriptor_only.yaml --tiny
+python scripts/train_local_descriptor.py --config configs/model_descriptor_only.yaml --max-epochs 1
+python scripts/train_transport_head.py --config configs/model_pore_transport.yaml --max-epochs 1 --local-checkpoint outputs/checkpoints/local_descriptor_best.pt
+python scripts/export_descriptor_table.py --config configs/model_pore_transport.yaml --output outputs/embeddings/descriptor_table.csv
+python scripts/run_symbolic_lasso.py --config configs/model_pore_transport.yaml --descriptor-table outputs/embeddings/descriptor_table.csv
 pytest -q
 ```
 
-Use `--tiny` for fast dummy generation and `--max-epochs`, `--limit-systems`, `--limit-samples` for smoke tests.
+If the package is not installed editable in the active environment, run with `PYTHONPATH=src`.
 
-## Real SimPoly/MD trajectories
+## Configs
 
-Real preprocessing has two layers:
-
-1. MDAnalysis reader loads topology, trajectory, coordinates, and box.
-2. PE/PP metadata adapter reads `metadata.yaml` for segment type, chain id, segment index, PE/PP identity, chain length, and system condition.
-
-The code does not assume MDAnalysis can infer polymer identity or torsion definitions automatically.
+- `configs/model_descriptor_only.yaml`: default descriptor time-series + GRU LD-TDN.
+- `configs/model_local_gnn.yaml`: optional local ego-GNN + temporal encoder.
+- `configs/model_pore_transport.yaml`: region pooling and physics-informed transport head.
 
 ## Repository Tracking Policy
 
-This repository tracks code, configuration, tests, and documentation only. Raw trajectories, processed datasets, checkpoints, logs, figures, and descriptor tables are excluded from Git tracking.
+Source, configs, tests, and docs are tracked. Generated data, checkpoints, logs, figures, and descriptor tables are excluded by `.gitignore`.
 
-## Baselines and Input Ablations
+## Real MLFF-MD Preprocessing TODOs
 
-The reported `baseline_metrics.csv` contains both a trained baseline and input ablation experiments. `condition_only` is a trained baseline using only system conditions. `static_graph_only`, `shuffled_history`, `no_dynamic_descriptors`, and `no_composition_edges` are input ablations or stress tests for the local graph descriptor SPIB design. `full_graph_descriptor_spib` loads the trained Graph-SPIB and transport head checkpoints for evaluation.
+- Implement metadata adapters for PE/PP/PC composition, chain IDs, chain lengths, repeat units, and molecular-weight descriptors.
+- Compute measured pore geometry and wall chemistry fields instead of dummy proxies.
+- Compute local descriptor sequences from trajectory history only.
+- Derive future local labels strictly from future windows.
+- Populate target masks for partially available transport labels.
+- Validate physical units and normalization before comparing systems.

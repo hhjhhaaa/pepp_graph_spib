@@ -1,5 +1,7 @@
-"""Compatibility module for the transport property head name."""
+"""Compatibility alias for LD-TDN physics transport."""
 
-from pepp_graph_spib.models.property_head import TransportPropertyHead
+from pepp_graph_spib.models.heads.physics_transport_head import PhysicsTransportHead
 
-__all__ = ["TransportPropertyHead"]
+TransportPropertyHead = PhysicsTransportHead
+
+__all__ = ["PhysicsTransportHead", "TransportPropertyHead"]

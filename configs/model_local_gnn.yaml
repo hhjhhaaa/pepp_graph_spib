@@ -1,5 +1,5 @@
 project:
-  name: pepp_graph_spib_ld_tdn
+  name: pepp_graph_spib_ld_tdn_local_gnn
   seed: 42
   device: auto
 
@@ -17,7 +17,6 @@ paths:
 data:
   use_dummy: true
   history_len: 32
-  stride: 1
   future_tau: 16
   r_cut_nm: 2.0
   max_neighbors: 64
@@ -60,29 +59,28 @@ conditions:
 
 model:
   name: LocalDynamicTransportDescriptorNetwork
-  use_graph: false
+  use_graph: true
   encoder_type: gru
+  gnn_hidden_dim: 64
+  gnn_layers: 2
   temporal_hidden_dim: 64
   temporal_layers: 2
   condition_hidden_dim: 64
   z_dim: 4
   dropout: 0.1
   beta_kl: 1.0e-3
-  gnn_hidden_dim: 64
-  gnn_layers: 2
+  max_neighbors: 64
 
 transport:
   hidden_dims: [128, 64]
 
 training:
-  batch_size: 256
-  num_workers: 0
+  batch_size: 128
   lr: 1.0e-3
   weight_decay: 1.0e-5
   max_epochs_local: 5
   max_epochs_transport: 10
   baseline_control_epochs: 1
-  patience: 8
   grad_clip: 5.0
   split_fracs: [0.7, 0.15, 0.15]
 
@@ -98,11 +96,4 @@ system_targets:
 
 symbolic:
   lasso_alpha: 0.01
-  target_names:
-    - z1
-    - z2
-    - z3
-    - z4
-    - D_eff
-    - P_access
-    - reaction_opportunity_index
+  target_names: [z1, z2, z3, z4, D_eff, P_access, reaction_opportunity_index]

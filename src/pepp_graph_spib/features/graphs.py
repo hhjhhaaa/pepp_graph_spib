@@ -157,7 +157,7 @@ def build_local_graph_at_frame(
     return data, metadata
 
 
-def future_labels_from_history_and_future(
+def local_labels_from_history_and_future(
     center_positions: np.ndarray,
     history_end: int,
     future_tau: int,
@@ -167,11 +167,10 @@ def future_labels_from_history_and_future(
     pepp_contact_fraction: float,
     temperature: float,
     density: float,
-) -> dict[str, int]:
-    """Generate future labels using only future coordinates and scalar proxies.
+) -> dict[str, int | float]:
+    """Generate LD-TDN future labels using only future coordinates and proxies.
 
-    Future quantities are returned as class labels only and are never written to
-    graph features.
+    Future quantities are never written to graph or descriptor history features.
     """
     now = center_positions[history_end]
     future = center_positions[min(history_end + future_tau, len(center_positions) - 1)]
@@ -181,6 +180,8 @@ def future_labels_from_history_and_future(
     residence_score = pepp_contact_fraction + 0.6 * density - 0.35 * free_volume_proxy - 0.25 * fdisp
     accessibility_score = 0.9 * free_volume_proxy + 0.45 * fdisp - 0.35 * local_density
     accessibility_score += 0.002 * (temperature - 550.0) - 0.4 * pepp_contact_fraction
+    contact_score = pepp_contact_fraction + 0.4 * density - 0.2 * fdisp
+    escape_score = fdisp + free_volume_proxy - 0.4 * pepp_contact_fraction - 0.2 * density
 
     def bin3(value: float, lo: float, hi: float) -> int:
         if value < lo:
@@ -190,7 +191,17 @@ def future_labels_from_history_and_future(
         return 2
 
     return {
-        "mobility": bin3(mobility_score, 0.35, 0.95),
-        "residence": bin3(residence_score, 0.35, 0.85),
-        "accessibility": bin3(accessibility_score, 0.15, 0.55),
+        "mobility_class": bin3(mobility_score, 0.35, 0.95),
+        "contact_class": bin3(contact_score, 0.2, 0.55),
+        "residence_class": bin3(residence_score, 0.35, 0.85),
+        "escape_class": bin3(escape_score, 0.15, 0.55),
+        "relax_class": bin3(accessibility_score, 0.15, 0.55),
+        "future_disp_parallel": float(abs(displacement(now, future, box)[2])),
+        "future_disp_radial": float(np.linalg.norm(displacement(now, future, box)[:2])),
+        "future_disp_norm": fdisp,
+        "short_msd_parallel": float(displacement(now, future, box)[2] ** 2),
+        "short_msd_radial": float(np.linalg.norm(displacement(now, future, box)[:2]) ** 2),
+        "contact_survival": float(1.0 / (1.0 + np.exp(-(2.0 * contact_score - fdisp)))),
+        "wall_contact_survival": float(1.0 / (1.0 + np.exp(-(density + pepp_contact_fraction - fdisp)))),
+        "free_volume_opening": float(np.clip(free_volume_proxy + 0.25 * fdisp - 0.1 * density, 0.0, 1.0)),
     }

@@ -17,10 +17,16 @@ def make_or_load_split(
 ) -> dict[str, list[int]]:
     """Create or read a split where systems never cross partitions."""
     path = Path(split_path)
+    current = sorted(set(int(x) for x in system_ids))
     if path.exists():
-        return read_json(path)
+        loaded = read_json(path)
+        loaded_ids = sorted(set(int(x) for part in loaded.values() for x in part))
+        if loaded_ids == current:
+            return loaded
     rng = np.random.default_rng(seed)
-    unique = np.array(sorted(set(int(x) for x in system_ids)), dtype=np.int64)
+    unique = np.array(current, dtype=np.int64)
+    if len(unique) < 3:
+        raise ValueError(f"Need at least 3 systems for train/val/test split, got {len(unique)}")
     rng.shuffle(unique)
     n = len(unique)
     n_train = max(1, int(round(split_fracs[0] * n)))

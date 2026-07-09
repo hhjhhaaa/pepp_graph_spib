@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-"""Preprocess real SimPoly/MD trajectories into graph windows."""
+"""Preprocess real SimPoly/MD trajectories into LD-TDN local windows."""
 
 from __future__ import annotations
 
 import argparse
 
-from pepp_graph_spib.data.preprocess_trajectory import preprocess_to_graph_windows
+from pepp_graph_spib.data.preprocess_trajectory import preprocess_to_local_windows
 from pepp_graph_spib.utils import load_config
 
 
@@ -26,7 +26,7 @@ def main() -> None:
     args = parser.parse_args()
     cfg = load_config(args.config)
     data = cfg["data"]
-    output = preprocess_to_graph_windows(
+    output = preprocess_to_local_windows(
         topology_path=args.topology,
         trajectory_path=args.trajectory,
         metadata_path=args.metadata,
@@ -40,7 +40,7 @@ def main() -> None:
         max_centers=args.max_centers,
         shell_edges=data.get("radial_shell_edges_nm", [0.6, 1.2, 2.0, 3.0]),
     )
-    print(f"wrote graph windows: {output}")
+    print(f"wrote local windows: {output}")
 
 
 if __name__ == "__main__":

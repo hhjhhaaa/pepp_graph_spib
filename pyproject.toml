@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pepp-graph-spib"
 version = "0.1.0"
-description = "Local multi-scale Graph-SPIB for PE/PP blend trajectory learning."
+description = "LD-TDN local dynamic transport descriptors for polymer trajectory windows."
 requires-python = ">=3.11"
 dependencies = [
   "numpy",
