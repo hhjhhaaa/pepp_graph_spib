@@ -31,7 +31,7 @@ REQUIRED_DESCRIPTOR_COLUMNS = [
     "mean_local_density",
     "mean_PE_fraction",
     "mean_PP_fraction",
-    "mean_PC_fraction",
+    "mean_PS_fraction",
     "P_entry",
     "C_axis",
     "tau_wall",
@@ -82,8 +82,8 @@ def build_descriptor_table(
                 export_name = "mean_PE_fraction"
             elif name == "mean_local_PP_fraction":
                 export_name = "mean_PP_fraction"
-            elif name == "mean_local_PC_fraction":
-                export_name = "mean_PC_fraction"
+            elif name == "mean_local_PS_fraction":
+                export_name = "mean_PS_fraction"
             row[export_name] = float(system_repr[row_idx, offset + i].detach().cpu())
         for i in range(4):
             row[f"radial_bin_fraction_{i}"] = float(system_repr[row_idx, offset + len(REGION_SCALAR_NAMES) + i].detach().cpu())

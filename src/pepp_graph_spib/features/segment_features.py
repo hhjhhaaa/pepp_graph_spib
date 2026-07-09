@@ -16,13 +16,13 @@ SEGMENT_FEATURE_NAMES = [
     "displacement_persistence",
     "local_PE_fraction",
     "local_PP_fraction",
-    "local_PC_fraction",
+    "local_PS_fraction",
     "PE_PE_contact_fraction",
     "PP_PP_contact_fraction",
-    "PC_PC_contact_fraction",
+    "PS_PS_contact_fraction",
     "PE_PP_contact_fraction",
-    "PE_PC_contact_fraction",
-    "PP_PC_contact_fraction",
+    "PE_PS_contact_fraction",
+    "PP_PS_contact_fraction",
     "polymer_wall_contact_fraction",
     "contact_persistence",
     "neighbor_persistence",
@@ -47,7 +47,7 @@ SEGMENT_FEATURE_NAMES = [
     "orientation_relative_to_pore_axis",
     "chain_end_distance_proxy",
     "aromatic_orientation_persistence",
-    "carbonate_state_proxy",
+    "phenyl_state_proxy",
 ]
 
 
@@ -96,7 +96,7 @@ def rolling_descriptor_sequence(
         wall_distance = float(meta.get("mean_wall_distance", 0.0))
         local_pe = float(meta.get("local_PE_fraction", 0.0))
         local_pp = float(meta.get("local_PP_fraction", 0.0))
-        local_pc = float(meta.get("local_PC_fraction", 0.0))
+        local_ps = float(meta.get("local_PS_fraction", 0.0))
         values = dict(meta)
         values.update(
             {
@@ -109,7 +109,7 @@ def rolling_descriptor_sequence(
                 "displacement_persistence": 0.5 * (persistence + 1.0),
                 "local_PE_fraction": local_pe,
                 "local_PP_fraction": local_pp,
-                "local_PC_fraction": local_pc,
+                "local_PS_fraction": local_ps,
                 "mean_local_density": density,
                 "local_density_fluctuation": abs(density - float(meta.get("system_density", density))),
                 "packing_heterogeneity": abs(local_pe - local_pp),

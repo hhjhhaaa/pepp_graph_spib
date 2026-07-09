@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 REAL_PREPROCESSING_TODOS = [
-    "Read PE/PP/PC chain metadata, chain lengths, repeat units, and composition.",
+    "Read PE/PP/PS chain metadata, chain lengths, repeat units, and composition.",
     "Compute history-only segment descriptor sequences from local MD/MLFF-MD windows.",
     "Optionally build small local ego-graph sequences; never full-box graphs.",
     "Compute pore geometry, radial/axial bins, silanol density, and wall chemistry.",

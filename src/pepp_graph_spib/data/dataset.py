@@ -103,13 +103,13 @@ def transform_sample(
             [
                 "local_PE_fraction",
                 "local_PP_fraction",
-                "local_PC_fraction",
+                "local_PS_fraction",
                 "PE_PE_contact_fraction",
                 "PP_PP_contact_fraction",
-                "PC_PC_contact_fraction",
+                "PS_PS_contact_fraction",
                 "PE_PP_contact_fraction",
-                "PE_PC_contact_fraction",
-                "PP_PC_contact_fraction",
+                "PE_PS_contact_fraction",
+                "PP_PS_contact_fraction",
             ],
         )
     elif transform == "no_wall_features":

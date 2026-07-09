@@ -14,13 +14,13 @@ CONDITION_NAMES = [
     "temperature",
     "PE_fraction",
     "PP_fraction",
-    "PC_fraction",
+    "PS_fraction",
     "PE_chain_length",
     "PP_chain_length",
-    "PC_chain_length",
+    "PS_chain_length",
     "PE_repeat_units",
     "PP_repeat_units",
-    "PC_repeat_units",
+    "PS_repeat_units",
     "mean_chain_length",
     "chain_length_polydispersity",
     "pore_diameter",
@@ -33,15 +33,15 @@ CONDITION_NAMES = [
 CHAIN_LENGTH_CONDITION_NAMES = [
     "PE_chain_length",
     "PP_chain_length",
-    "PC_chain_length",
+    "PS_chain_length",
     "PE_repeat_units",
     "PP_repeat_units",
-    "PC_repeat_units",
+    "PS_repeat_units",
     "mean_chain_length",
     "chain_length_polydispersity",
 ]
 
-COMPOSITION_CONDITION_NAMES = ["PE_fraction", "PP_fraction", "PC_fraction"]
+COMPOSITION_CONDITION_NAMES = ["PE_fraction", "PP_fraction", "PS_fraction"]
 
 WALL_CONDITION_NAMES = [
     "pore_diameter",

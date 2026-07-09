@@ -81,23 +81,23 @@ def _local_labels(
 def _condition_metadata(rng: np.random.Generator) -> dict[str, float]:
     pe_frac = float(rng.uniform(0.2, 0.75))
     pp_frac = 1.0 - pe_frac
-    pc_frac = 0.0
+    ps_frac = 0.0
     pe_len = float(rng.integers(60, 221))
     pp_len = float(rng.integers(45, 201))
-    pc_len = 0.0
+    ps_len = 0.0
     chain_lengths = np.asarray([pe_len, pp_len], dtype=np.float32)
     return {
         "density": float(rng.uniform(0.74, 0.96)),
         "temperature": float(rng.uniform(450.0, 650.0)),
         "PE_fraction": pe_frac,
         "PP_fraction": pp_frac,
-        "PC_fraction": pc_frac,
+        "PS_fraction": ps_frac,
         "PE_chain_length": pe_len,
         "PP_chain_length": pp_len,
-        "PC_chain_length": pc_len,
+        "PS_chain_length": ps_len,
         "PE_repeat_units": pe_len,
         "PP_repeat_units": pp_len,
-        "PC_repeat_units": pc_len,
+        "PS_repeat_units": ps_len,
         "mean_chain_length": float(np.average(chain_lengths, weights=[pe_frac, pp_frac])),
         "chain_length_polydispersity": float(chain_lengths.std() / max(chain_lengths.mean(), 1.0)),
         "pore_diameter": float(rng.uniform(4.0, 12.0)),
@@ -120,10 +120,10 @@ def _augment_metadata(
     out = dict(metadata)
     out.update(
         {
-            "local_PC_fraction": 0.0,
-            "PC_PC_contact_fraction": 0.0,
-            "PE_PC_contact_fraction": 0.0,
-            "PP_PC_contact_fraction": 0.0,
+            "local_PS_fraction": 0.0,
+            "PS_PS_contact_fraction": 0.0,
+            "PE_PS_contact_fraction": 0.0,
+            "PP_PS_contact_fraction": 0.0,
             "polymer_wall_contact_fraction": float(np.exp(-wall_distance / 1.5)),
             "contact_persistence": float(metadata.get("PE_PP_contact_fraction", 0.0)),
             "neighbor_persistence": float(np.clip(1.0 - metadata.get("mean_displacement_norm", 0.0) / 2.0, 0.0, 1.0)),
@@ -141,7 +141,7 @@ def _augment_metadata(
             "orientation_relative_to_pore_axis": float(abs(center_pos[2] / box_len - 0.5) * 2.0),
             "chain_end_distance_proxy": float(np.clip(1.0 - metadata.get("mean_displacement_norm", 0.0), 0.0, 1.0)),
             "aromatic_orientation_persistence": 0.0,
-            "carbonate_state_proxy": condition_meta["PC_fraction"],
+            "phenyl_state_proxy": condition_meta["PS_fraction"],
             "system_density": condition_meta["density"],
         }
     )

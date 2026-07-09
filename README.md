@@ -19,6 +19,9 @@ short local trajectory window
 
 A local ego-GNN is available as an optional encoder, but it only encodes small local graphs and never builds a graph over thousands of atoms.
 
+For the full Chinese project pipeline summary, see
+[`docs/ld_tdn_pipeline_summary.md`](docs/ld_tdn_pipeline_summary.md).
+
 ## Methodological Reference
 
 LD-TDN follows the spirit of Chen et al., "Constructing custom thermodynamics using deep learning", *Nature Computational Science* 4, 66-85 (2024), DOI: `10.1038/s43588-023-00581-5`.
@@ -42,13 +45,13 @@ density
 temperature
 PE_fraction
 PP_fraction
-PC_fraction
+PS_fraction
 PE_chain_length
 PP_chain_length
-PC_chain_length
+PS_chain_length
 PE_repeat_units
 PP_repeat_units
-PC_repeat_units
+PS_repeat_units
 mean_chain_length
 chain_length_polydispersity
 pore_diameter
@@ -119,8 +122,8 @@ pore-confined transport descriptor model, not a reactivity model.
 
 ## Smoke Workflow
 
-Dummy v1 is PE/PP-only. PC condition fields are schema placeholders and are set
-to zero until real PC preprocessing is implemented.
+Dummy v1 is PE/PP-only. PS condition fields are schema placeholders and are set
+to zero until real PS preprocessing is implemented.
 
 ```bash
 python scripts/make_dummy_graph_data.py --config configs/model_descriptor_only.yaml --tiny
@@ -145,7 +148,7 @@ Source, configs, tests, and docs are tracked. Generated data, checkpoints, logs,
 
 ## Real MLFF-MD Preprocessing TODOs
 
-- Implement metadata adapters for PE/PP/PC composition, chain IDs, chain lengths, repeat units, and molecular-weight descriptors.
+- Implement metadata adapters for PE/PP/PS composition, chain IDs, chain lengths, repeat units, and molecular-weight descriptors.
 - Compute measured pore geometry and wall chemistry fields instead of dummy proxies.
 - Compute local descriptor sequences from trajectory history only.
 - Derive future local labels strictly from future windows.

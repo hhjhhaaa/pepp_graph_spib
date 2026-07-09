@@ -18,7 +18,7 @@ REGION_SCALAR_NAMES = [
     "mean_polymer_wall_contact_fraction",
     "mean_local_PE_fraction",
     "mean_local_PP_fraction",
-    "mean_local_PC_fraction",
+    "mean_local_PS_fraction",
     "mean_radial_bin",
     "mean_axial_bin",
 ]
@@ -72,7 +72,7 @@ class RegionPooling(nn.Module):
                     wall_contact.mean(),
                     md.get("local_PE_fraction", fast.new_zeros(fast.shape)).mean(),
                     md.get("local_PP_fraction", fast.new_zeros(fast.shape)).mean(),
-                    md.get("local_PC_fraction", fast.new_zeros(fast.shape)).mean(),
+                    md.get("local_PS_fraction", fast.new_zeros(fast.shape)).mean(),
                     md.get("radial_bin", fast.new_zeros(fast.shape)).mean(),
                     md.get("axial_bin", fast.new_zeros(fast.shape)).mean(),
                 ]
