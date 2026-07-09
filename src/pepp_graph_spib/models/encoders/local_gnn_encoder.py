@@ -1,4 +1,4 @@
-"""Optional local ego-graph frame encoder for LD-TDN."""
+"""Local ego-graph frame encoder for LD-TDN."""
 
 from __future__ import annotations
 

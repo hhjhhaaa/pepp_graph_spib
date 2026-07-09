@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pepp-graph-spib"
+name = "pepp-ld-tdn"
 version = "0.1.0"
 description = "LD-TDN local dynamic transport descriptors for polymer trajectory windows."
 requires-python = ">=3.11"

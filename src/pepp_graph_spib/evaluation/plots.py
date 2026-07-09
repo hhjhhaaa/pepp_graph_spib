@@ -1,4 +1,4 @@
-"""Plot helpers for embeddings, transport predictions, baselines, and LASSO."""
+"""Plot helpers for embeddings, transport predictions, and LASSO."""
 
 from __future__ import annotations
 
@@ -40,17 +40,6 @@ def plot_pred_vs_true(y_true: np.ndarray, y_pred: np.ndarray, path: str | Path, 
     plt.xlabel(f"true {target}")
     plt.ylabel(f"pred {target}")
     plt.title(target)
-    _save(path)
-
-
-def plot_baseline_comparison(metrics_csv: str | Path, path: str | Path) -> None:
-    """Bar plot of baseline RMSE by model."""
-    df = pd.read_csv(metrics_csv)
-    agg = df.groupby("model_name")["RMSE"].mean().sort_values()
-    plt.figure(figsize=(7, 4))
-    agg.plot(kind="bar")
-    plt.ylabel("mean RMSE")
-    plt.title("Baseline comparison")
     _save(path)
 
 

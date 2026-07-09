@@ -1,13 +1,14 @@
 # LD-TDN: Local Dynamic Transport Descriptor Network
 
-This repository is no longer a Graph-SPIB demo. It is a lightweight **Local Dynamic Transport Descriptor Network (LD-TDN)** for ps-scale local polymer trajectory windows.
+This repository implements a lightweight **Local Dynamic Transport Descriptor Network (LD-TDN)** for ps-scale local polymer trajectory windows.
 
-The model is deliberately **not** a full-system atomistic GNN. The default path is:
+The model is deliberately **not** a full-system atomistic GNN. It has one maintained mainline:
 
 ```text
 short local trajectory window
-→ descriptor feature_sequence [T, F]
-→ GRU/TCN temporal encoder
+→ descriptor feature_sequence [T, F] + local graph_sequence + explicit conditions
+→ descriptor temporal encoder + local GNN temporal encoder + condition encoder
+→ fused dual-stream state
 → predictive variational bottleneck
 → z_i local dynamic transport descriptor
 → local future-dynamics heads
@@ -17,7 +18,7 @@ short local trajectory window
 → LASSO descriptor distillation
 ```
 
-A local ego-GNN is available as an optional encoder, but it only encodes small local graphs and never builds a graph over thousands of atoms.
+The local GNN encodes only segment-centered ego graphs from the same trajectory window; it never builds a graph over thousands of atoms.
 
 For the full Chinese project pipeline summary, see
 [`docs/ld_tdn_pipeline_summary.md`](docs/ld_tdn_pipeline_summary.md).
@@ -126,25 +127,22 @@ Dummy v1 is PE/PP-only. PS condition fields are schema placeholders and are set
 to zero until real PS preprocessing is implemented.
 
 ```bash
-python scripts/make_dummy_graph_data.py --config configs/model_descriptor_only.yaml --tiny
-python scripts/train_local_descriptor.py --config configs/model_descriptor_only.yaml --max-epochs 1
-python scripts/train_transport_head.py --config configs/model_pore_transport.yaml --max-epochs 1 --local-checkpoint outputs/checkpoints/local_descriptor_best.pt
-python scripts/export_descriptor_table.py --config configs/model_pore_transport.yaml --output outputs/embeddings/descriptor_table.csv
-python scripts/run_symbolic_lasso.py --config configs/model_pore_transport.yaml --descriptor-table outputs/embeddings/descriptor_table.csv
-pytest -q
+python scripts/make_dummy_local_windows.py --config configs/main.yaml --tiny
+python scripts/train_local_descriptor.py --config configs/main.yaml --max-epochs 1
+python scripts/train_transport_head.py --config configs/main.yaml --max-epochs 1 --local-checkpoint outputs/checkpoints/local_descriptor_best.pt
+python scripts/export_descriptor_table.py --config configs/main.yaml --output outputs/embeddings/descriptor_table.csv
+python scripts/run_symbolic_lasso.py --config configs/main.yaml --descriptor-table outputs/embeddings/descriptor_table.csv
 ```
 
 If the package is not installed editable in the active environment, run with `PYTHONPATH=src`.
 
-## Configs
+## Main Config
 
-- `configs/model_descriptor_only.yaml`: default descriptor time-series + GRU LD-TDN.
-- `configs/model_local_gnn.yaml`: optional local ego-GNN + temporal encoder.
-- `configs/model_pore_transport.yaml`: region pooling and physics-informed transport head.
+`configs/main.yaml` is the single maintained LD-TDN configuration. It defines the dual-stream local graph + descriptor + condition architecture, region pooling, and physics-informed transport head.
 
 ## Repository Tracking Policy
 
-Source, configs, tests, and docs are tracked. Generated data, checkpoints, logs, figures, and descriptor tables are excluded by `.gitignore`.
+Source, the main config, scripts, and docs are tracked. Generated data, checkpoints, logs, figures, and descriptor tables are excluded by `.gitignore`.
 
 ## Real MLFF-MD Preprocessing TODOs
 

@@ -18,7 +18,7 @@ from pepp_graph_spib.utils import ensure_dirs, get_device, load_config, resolve_
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/model_pore_transport.yaml")
+    parser.add_argument("--config", default="configs/main.yaml")
     parser.add_argument("--local-checkpoint", default="outputs/checkpoints/local_descriptor_best.pt")
     parser.add_argument("--transport-checkpoint", default="outputs/checkpoints/transport_head_best.pt")
     parser.add_argument("--output", required=True)
@@ -27,7 +27,11 @@ def main() -> None:
     set_seed(int(cfg["project"]["seed"]))
     ensure_dirs(cfg)
     device = get_device(cfg)
-    data_path = resolve_path(cfg, "dummy_graph_path") if cfg["data"]["use_dummy"] else resolve_path(cfg, "processed_graph_path")
+    data_path = (
+        resolve_path(cfg, "dummy_local_windows_path")
+        if cfg["data"]["use_dummy"]
+        else resolve_path(cfg, "processed_local_windows_path")
+    )
     dataset = LocalWindowDataset(data_path)
     model = build_model_from_config(cfg).to(device)
     model.load_state_dict(torch.load(args.local_checkpoint, map_location=device, weights_only=False)["model_state"])

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Generate dummy local dynamic graph windows."""
+"""Generate dummy LD-TDN local windows."""
 
 from __future__ import annotations
 
@@ -14,16 +14,16 @@ from pepp_graph_spib.utils import ensure_dirs, load_config, resolve_path, set_se
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/default.yaml")
+    parser.add_argument("--config", default="configs/main.yaml")
     parser.add_argument("--output", default=None)
     parser.add_argument("--tiny", action="store_true")
     args = parser.parse_args()
     cfg = load_config(args.config)
     set_seed(int(cfg["project"]["seed"]))
     ensure_dirs(cfg)
-    output = args.output or resolve_path(cfg, "dummy_graph_path")
-    graph_path, target_path = generate_dummy_dataset(cfg, output, tiny=args.tiny)
-    print(f"wrote graph windows: {graph_path}")
+    output = args.output or resolve_path(cfg, "dummy_local_windows_path")
+    local_windows_path, target_path = generate_dummy_dataset(cfg, output, tiny=args.tiny)
+    print(f"wrote local windows: {local_windows_path}")
     print(f"wrote system targets: {target_path}")
 
 

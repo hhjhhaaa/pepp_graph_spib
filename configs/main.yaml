@@ -1,12 +1,12 @@
 project:
-  name: pepp_graph_spib_ld_tdn_transport
+  name: pepp_ld_tdn_transport
   seed: 42
   device: auto
 
 paths:
-  dummy_graph_path: data/dummy/dummy_graph_windows.pt
+  dummy_local_windows_path: data/dummy/dummy_local_windows.pt
   dummy_system_targets_path: data/dummy/dummy_system_targets.csv
-  processed_graph_path: data/processed/local_windows.pt
+  processed_local_windows_path: data/processed/local_windows.pt
   system_targets_path: data/dummy/dummy_system_targets.csv
   split_path: outputs/logs/system_split.json
   checkpoint_dir: outputs/checkpoints
@@ -59,10 +59,11 @@ conditions:
 
 model:
   name: LocalDynamicTransportDescriptorNetwork
-  use_graph: false
   encoder_type: gru
-  temporal_hidden_dim: 64
+  descriptor_hidden_dim: 64
+  graph_hidden_dim: 64
   temporal_layers: 2
+  gnn_layers: 2
   condition_hidden_dim: 64
   z_dim: 4
   dropout: 0.1
@@ -82,7 +83,6 @@ training:
   weight_decay: 1.0e-5
   max_epochs_local: 5
   max_epochs_transport: 10
-  baseline_control_epochs: 1
   grad_clip: 5.0
   split_fracs: [0.7, 0.15, 0.15]
 

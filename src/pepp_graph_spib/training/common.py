@@ -21,10 +21,7 @@ def move_batch(batch: dict, device: torch.device) -> dict:
     """Move a collated LD-TDN batch to device."""
     return {
         "feature_sequence": batch["feature_sequence"].to(device),
-        "graph_sequence": None if batch["graph_sequence"] is None else [g.to(device) for g in batch["graph_sequence"]],
-        "batch_graphs_by_time": None
-        if batch["batch_graphs_by_time"] is None
-        else [g.to(device) for g in batch["batch_graphs_by_time"]],
+        "graph_sequence": [g.to(device) for g in batch["graph_sequence"]],
         "condition": batch["condition"].to(device),
         "local_labels": {k: v.to(device) for k, v in batch["local_labels"].items()},
         "system_targets": batch["system_targets"].to(device),
@@ -45,16 +42,15 @@ def build_model_from_config(cfg: dict) -> LocalDynamicTransportDescriptorNetwork
     return LocalDynamicTransportDescriptorNetwork(
         feature_dim=int(data.get("feature_dim", feature_dim())),
         condition_dim=int(data["condition_dim"]),
-        temporal_hidden_dim=int(model.get("temporal_hidden_dim", 64)),
+        descriptor_hidden_dim=int(model.get("descriptor_hidden_dim", 64)),
+        graph_hidden_dim=int(model.get("graph_hidden_dim", 64)),
         temporal_layers=int(model.get("temporal_layers", 2)),
         condition_hidden_dim=int(model.get("condition_hidden_dim", 64)),
         z_dim=int(model.get("z_dim", 4)),
         encoder_type=str(model.get("encoder_type", "gru")),
         dropout=float(model.get("dropout", 0.1)),
-        use_graph=bool(model.get("use_graph", False)),
         node_dim=int(data.get("node_feature_dim", 16)),
         edge_dim=int(data.get("edge_feature_dim", 12)),
-        gnn_hidden_dim=int(model.get("gnn_hidden_dim", 64)),
         gnn_layers=int(model.get("gnn_layers", 2)),
     )
 

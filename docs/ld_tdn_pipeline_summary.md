@@ -105,7 +105,7 @@ LocalWindowSample:
   center_id
   center_type
   feature_sequence [T, F]
-  optional local graph_sequence
+  local graph_sequence
   condition
   local_labels
   system_targets
@@ -113,7 +113,7 @@ LocalWindowSample:
   metadata
 ```
 
-`feature_sequence [T, F]` 是默认主输入，来自历史窗口，不能包含未来标签。
+`feature_sequence [T, F]` 和 `local graph_sequence` 是同一历史窗口的双流输入，不能包含未来标签。`local graph_sequence` 只允许 segment-centered ego graph，不允许 full-system graph。
 
 ## 5. 显式条件变量
 
@@ -144,34 +144,36 @@ Dummy v1 是 PE/PP-only；PS 字段是 schema placeholder，在真实 PS preproc
 
 ## 6. LD-TDN 模型架构
 
-默认路径：
+唯一主线路径：
 
 ```text
 feature_sequence [T, F]
         ↓
-GRU / TCN temporal encoder
+descriptor GRU / TCN temporal encoder
+        ↓
+h_desc
+
+local graph_sequence
+        ↓
+small local GNN per frame
+        ↓
+graph GRU / TCN temporal encoder
+        ↓
+h_graph
+
+condition
         ↓
 condition encoder
         ↓
-concat temporal_h + condition_h
+h_cond
+        ↓
+concat h_desc + h_graph + h_cond
         ↓
 variational / predictive bottleneck
         ↓
 z_i local dynamic transport descriptor
         ↓
 local future-dynamics heads
-```
-
-可选 local ego-GNN 路径：
-
-```text
-local graph_sequence
-        ↓
-small local GNN per frame
-        ↓
-GRU / TCN temporal encoder
-        ↓
-z_i
 ```
 
 禁止构建 full-system atomistic GNN。
@@ -286,31 +288,25 @@ available target_* columns
 
 之后使用 LASSO / sparse regression 将神经描述符和 transport outputs 蒸馏成少数显式物理描述符。
 
-## 11. Validation / Ablation
+## 11. 单主线工程约束
 
-当前 ablation 设计：
-
-```text
-condition_only
-static_features_only
-shuffled_history
-no_condition
-no_chain_length
-no_composition
-no_wall_features
-descriptor_time_series_full
-optional_local_gnn
-```
-
-关键验证点：
+当前仓库只维护一条工程路线：
 
 ```text
-shuffled_history 变差：模型利用时间顺序
-no_chain_length 变差：链长 / repeat unit 显式输入有必要
-no_composition 变差：composition/contact 信息有用
-no_wall_features 变差：孔壁和孔道特征控制受限输运
-optional_local_gnn 若优于 descriptor-only：局部空间图结构有额外贡献
+local graph trajectory
++ descriptor feature sequence
++ explicit physical conditions
+        ↓
+dual-stream LD-TDN bottleneck
+        ↓
+local future dynamics
+        ↓
+region pooling
+        ↓
+physics transport head
 ```
+
+不维护其他模型路线、旧接口别名或消融入口。真实数据接入也必须生成同一份 `LocalWindowSample` schema。
 
 ## 12. 当前代码链路
 
@@ -320,7 +316,7 @@ optional_local_gnn 若优于 descriptor-only：局部空间图结构有额外贡
 
 dummy 数据生成:
   src/pepp_graph_spib/data/dummy.py
-  scripts/make_dummy_graph_data.py
+  scripts/make_dummy_local_windows.py
 
 特征序列:
   src/pepp_graph_spib/features/segment_features.py
@@ -328,13 +324,13 @@ dummy 数据生成:
 batch collate:
   src/pepp_graph_spib/data/collate.py
 
-dataset / ablation:
+dataset:
   src/pepp_graph_spib/data/dataset.py
 
 时间编码器:
   src/pepp_graph_spib/models/encoders/timeseries_encoder.py
 
-可选 local GNN:
+local GNN:
   src/pepp_graph_spib/models/encoders/local_gnn_encoder.py
 
 bottleneck:
@@ -367,9 +363,7 @@ LASSO:
   scripts/run_symbolic_lasso.py
 
 配置:
-  configs/model_descriptor_only.yaml
-  configs/model_local_gnn.yaml
-  configs/model_pore_transport.yaml
+  configs/main.yaml
 ```
 
 ## 13. 一句话版

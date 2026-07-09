@@ -74,7 +74,7 @@ pandas @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pan
 parsnip-cif @ file:///home/conda/feedstock_root/build_artifacts/parsnip-cif_1781310187218/work
 pathspec @ file:///home/conda/feedstock_root/build_artifacts/pathspec_1777271521463/work
 patsy @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_patsy_1760998269/work
-# Editable install with no version control (pepp-graph-spib==0.1.0)
+# Editable install with no version control (pepp-ld-tdn==0.1.0)
 -e /home/jinhao/mlff/pepp_graph_spib
 persim @ file:///home/conda/feedstock_root/build_artifacts/persim_1741812919569/work
 pillow @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pillow_1775060059/work
@@ -88,7 +88,6 @@ pyedr @ file:///home/conda/feedstock_root/build_artifacts/pyedr_1734172142114/wo
 Pygments @ file:///home/conda/feedstock_root/build_artifacts/pygments_1774796700044/work
 pyparsing @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pyparsing_1769003998/work
 PySide6==6.9.2
-pytest @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pytest_1782127176/work
 python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_python-dateutil_1751104122/work
 pytng @ file:///home/conda/feedstock_root/build_artifacts/pytng_1760417855077/work
 pytokens @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pytokens_1778688805/work

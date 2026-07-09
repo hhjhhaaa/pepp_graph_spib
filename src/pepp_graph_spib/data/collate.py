@@ -18,14 +18,18 @@ from pepp_graph_spib.data.sample import (
 
 def _stack_feature_sequence(samples: list[LocalWindowSample]) -> torch.Tensor:
     if any(sample.feature_sequence is None for sample in samples):
-        raise ValueError("All samples need feature_sequence for descriptor mode")
+        raise ValueError("All LD-TDN samples require feature_sequence")
     return torch.stack([sample.feature_sequence.float() for sample in samples], dim=0)  # type: ignore[union-attr]
 
 
-def _batch_graph_sequence(samples: list[LocalWindowSample]) -> list[Batch] | None:
+def _batch_graph_sequence(samples: list[LocalWindowSample]) -> list[Batch]:
     if any(sample.graph_sequence is None for sample in samples):
-        return None
+        raise ValueError("All LD-TDN samples require graph_sequence")
     history_len = len(samples[0].graph_sequence or [])
+    if history_len == 0:
+        raise ValueError("All LD-TDN samples require non-empty graph_sequence")
+    if any(len(sample.graph_sequence or []) != history_len for sample in samples):
+        raise ValueError("All graph_sequence entries in a batch must have the same history length")
     return [
         Batch.from_data_list([sample.graph_sequence[t] for sample in samples if sample.graph_sequence is not None])
         for t in range(history_len)
@@ -60,7 +64,6 @@ def collate_local_windows(samples: list[LocalWindowSample]) -> dict[str, Any]:
     return {
         "feature_sequence": _stack_feature_sequence(samples),
         "graph_sequence": graph_sequence,
-        "batch_graphs_by_time": graph_sequence,
         "condition": condition,
         "local_labels": local_labels,
         "system_targets": system_targets,
@@ -69,6 +72,4 @@ def collate_local_windows(samples: list[LocalWindowSample]) -> dict[str, Any]:
     }
 
 
-collate_graph_windows = collate_local_windows
-
-__all__ = ["collate_local_windows", "collate_graph_windows"]
+__all__ = ["collate_local_windows"]

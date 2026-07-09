@@ -11,7 +11,7 @@ from pepp_graph_spib.utils import load_config
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/default.yaml")
+    parser.add_argument("--config", default="configs/main.yaml")
     parser.add_argument("--topology", required=True)
     parser.add_argument("--trajectory", required=True)
     parser.add_argument("--metadata", required=True)

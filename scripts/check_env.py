@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Check runtime imports for the PE/PP Graph-SPIB project."""
+"""Check runtime imports for the PE/PP/PS LD-TDN project."""
 
 from __future__ import annotations
 

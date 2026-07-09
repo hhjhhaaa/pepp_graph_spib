@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import torch
 from torch_geometric.data import Data
@@ -85,16 +84,16 @@ class LocalWindowSample:
     """One center-local short trajectory window for LD-TDN.
 
     `feature_sequence` contains history-only local dynamic descriptors with
-    shape [T, F]. `graph_sequence` is optional and must only contain small local
-    ego graphs. `local_labels` are derived from the future window and are never
-    used as input features.
+    shape [T, F]. `graph_sequence` contains the matching small local ego graphs
+    and never full-system graphs. `local_labels` are derived from the future
+    window and are never used as input features.
     """
 
     system_id: int
     center_id: int
     center_type: int
-    feature_sequence: torch.Tensor | None
-    graph_sequence: list[Data] | None
+    feature_sequence: torch.Tensor
+    graph_sequence: list[Data]
     condition: torch.Tensor
     local_labels: dict[str, int | float]
     system_targets: torch.Tensor
@@ -147,17 +146,3 @@ def numeric_metadata_union(samples: list[LocalWindowSample]) -> dict[str, torch.
     out["center_id"] = torch.tensor([int(sample.center_id) for sample in samples], dtype=torch.long)
     out["center_type"] = torch.tensor([int(sample.center_type) for sample in samples], dtype=torch.long)
     return out
-
-
-def sample_to_legacy_dict(sample: LocalWindowSample) -> dict[str, Any]:
-    """Small debugging helper for inspecting saved samples."""
-    return {
-        "system_id": sample.system_id,
-        "center_id": sample.center_id,
-        "center_type": sample.center_type,
-        "feature_sequence_shape": None if sample.feature_sequence is None else tuple(sample.feature_sequence.shape),
-        "has_graph_sequence": sample.graph_sequence is not None,
-        "condition_dim": int(sample.condition.numel()),
-        "local_labels": dict(sample.local_labels),
-        "metadata": dict(sample.metadata),
-    }

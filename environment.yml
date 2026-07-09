@@ -1,11 +1,10 @@
-name: pepp-graph-spib
+name: pepp-ld-tdn
 channels:
   - conda-forge
 dependencies:
   - python=3.11
   - scipy
   - pyyaml
-  - pytest
   - ripser
   - seaborn
   - freud

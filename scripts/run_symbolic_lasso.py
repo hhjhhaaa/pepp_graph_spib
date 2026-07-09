@@ -14,7 +14,7 @@ from pepp_graph_spib.utils import ensure_dirs, load_config, resolve_path
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/model_pore_transport.yaml")
+    parser.add_argument("--config", default="configs/main.yaml")
     parser.add_argument("--descriptor-table", required=True)
     args = parser.parse_args()
     cfg = load_config(args.config)

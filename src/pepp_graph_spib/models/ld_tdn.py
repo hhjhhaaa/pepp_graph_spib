@@ -18,29 +18,29 @@ class LocalDynamicTransportDescriptorNetwork(nn.Module):
         self,
         feature_dim: int,
         condition_dim: int,
-        temporal_hidden_dim: int = 64,
+        descriptor_hidden_dim: int = 64,
+        graph_hidden_dim: int = 64,
         temporal_layers: int = 2,
         condition_hidden_dim: int = 64,
         z_dim: int = 4,
         encoder_type: str = "gru",
         dropout: float = 0.1,
-        use_graph: bool = False,
         node_dim: int = 16,
         edge_dim: int = 12,
-        gnn_hidden_dim: int = 64,
         gnn_layers: int = 2,
     ) -> None:
         super().__init__()
-        self.use_graph = use_graph
-        if use_graph:
-            self.graph_encoder = LocalGNNFrameEncoder(node_dim, edge_dim, gnn_hidden_dim, gnn_layers, dropout)
-            temporal_input_dim = gnn_hidden_dim
-        else:
-            self.graph_encoder = None
-            temporal_input_dim = feature_dim
-        self.temporal = TimeSeriesEncoder(
-            temporal_input_dim,
-            hidden_dim=temporal_hidden_dim,
+        self.graph_encoder = LocalGNNFrameEncoder(node_dim, edge_dim, graph_hidden_dim, gnn_layers, dropout)
+        self.graph_temporal = TimeSeriesEncoder(
+            graph_hidden_dim,
+            hidden_dim=graph_hidden_dim,
+            num_layers=temporal_layers,
+            encoder_type=encoder_type,
+            dropout=dropout,
+        )
+        self.descriptor_temporal = TimeSeriesEncoder(
+            feature_dim,
+            hidden_dim=descriptor_hidden_dim,
             num_layers=temporal_layers,
             encoder_type=encoder_type,
             dropout=dropout,
@@ -53,20 +53,22 @@ class LocalDynamicTransportDescriptorNetwork(nn.Module):
             nn.Linear(condition_hidden_dim, condition_hidden_dim),
             nn.ReLU(),
         )
-        self.bottleneck = VariationalBottleneck(temporal_hidden_dim + condition_hidden_dim, z_dim)
-        self.local_heads = LocalDynamicsHeads(z_dim, hidden_dim=temporal_hidden_dim)
+        self.bottleneck = VariationalBottleneck(descriptor_hidden_dim + graph_hidden_dim + condition_hidden_dim, z_dim)
+        self.local_heads = LocalDynamicsHeads(z_dim, hidden_dim=descriptor_hidden_dim)
 
     def forward(self, batch: dict) -> dict[str, torch.Tensor]:
-        if self.use_graph:
-            graph_sequence = batch.get("graph_sequence") or batch.get("batch_graphs_by_time")
-            if graph_sequence is None:
-                raise ValueError("use_graph=True requires graph_sequence/batch_graphs_by_time")
-            frame_h = [self.graph_encoder(graph) for graph in graph_sequence]  # type: ignore[misc]
-            sequence = torch.stack(frame_h, dim=1)
-        else:
-            sequence = batch["feature_sequence"].float()
-        temporal_h = self.temporal(sequence)
+        if "feature_sequence" not in batch or "graph_sequence" not in batch or "condition" not in batch:
+            raise ValueError("LD-TDN requires feature_sequence, graph_sequence, and condition")
+        feature_sequence = batch["feature_sequence"].float()
+        graph_sequence = batch["graph_sequence"]
+        if graph_sequence is None or len(graph_sequence) == 0:
+            raise ValueError("LD-TDN requires a non-empty local graph_sequence")
+        desc_h = self.descriptor_temporal(feature_sequence)
+        graph_frame_h = [self.graph_encoder(graph) for graph in graph_sequence]
+        graph_h = self.graph_temporal(torch.stack(graph_frame_h, dim=1))
         cond_h = self.condition_encoder(batch["condition"].float())
-        bottleneck = self.bottleneck(torch.cat([temporal_h, cond_h], dim=-1))
+        if desc_h.size(0) != graph_h.size(0) or desc_h.size(0) != cond_h.size(0):
+            raise ValueError("feature_sequence, graph_sequence, and condition batch sizes must match")
+        bottleneck = self.bottleneck(torch.cat([desc_h, graph_h, cond_h], dim=-1))
         local_outputs = self.local_heads(bottleneck["z"])
         return {**bottleneck, **local_outputs, "local_outputs": local_outputs}

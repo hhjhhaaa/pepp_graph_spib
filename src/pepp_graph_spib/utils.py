@@ -41,7 +41,7 @@ def ensure_dirs(cfg: dict[str, Any]) -> None:
     """Create configured output directories."""
     for key in ("checkpoint_dir", "log_dir", "figure_dir", "embedding_dir"):
         resolve_path(cfg, key).mkdir(parents=True, exist_ok=True)
-    for key in ("dummy_graph_path", "processed_graph_path"):
+    for key in ("dummy_local_windows_path", "processed_local_windows_path"):
         resolve_path(cfg, key).parent.mkdir(parents=True, exist_ok=True)
 
 

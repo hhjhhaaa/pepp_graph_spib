@@ -40,7 +40,7 @@ def _epoch(model, loader, device, beta_kl, optimizer=None, grad_clip=5.0) -> dic
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/model_descriptor_only.yaml")
+    parser.add_argument("--config", default="configs/main.yaml")
     parser.add_argument("--max-epochs", type=int, default=None)
     parser.add_argument("--limit-systems", type=int, default=None)
     parser.add_argument("--limit-samples", type=int, default=None)
@@ -49,7 +49,11 @@ def main() -> None:
     set_seed(int(cfg["project"]["seed"]))
     ensure_dirs(cfg)
     device = get_device(cfg)
-    data_path = resolve_path(cfg, "dummy_graph_path") if cfg["data"]["use_dummy"] else resolve_path(cfg, "processed_graph_path")
+    data_path = (
+        resolve_path(cfg, "dummy_local_windows_path")
+        if cfg["data"]["use_dummy"]
+        else resolve_path(cfg, "processed_local_windows_path")
+    )
     all_data = LocalWindowDataset(data_path, limit_systems=args.limit_systems, limit_samples=args.limit_samples)
     split = make_or_load_split(
         [int(s.system_id) for s in all_data.samples],
